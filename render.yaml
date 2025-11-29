@@ -1,68 +1,68 @@
 databases:
   - name: tokendb
     databaseName: tokendb
-    user: postgres
     plan: free
-  - name: portfolio_db
+  - name: portfolio-db
     databaseName: portfolio_db
-    user: postgres
     plan: free
 
 services:
+  # ----------------- DISCOVERY (EUREKA) -----------------
   - type: pserv
     name: discovery-service
-    env: java
-    plan: free
+    runtime: docker
+    plan: starter      # pserv cannot use free
     rootDir: discovery-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/discovery-service-1.0.0.jar
-    healthCheckPath: /
+    dockerfilePath: ./discovery-service/Dockerfile
     envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
       - key: SERVER_PORT
-        value: 8761
+        value: "8761"
+
+  # ----------------- GATEWAY (PUBLIC ENTRY) -----------------
   - type: web
     name: gateway-service
-    env: java
+    runtime: docker
     plan: free
     rootDir: gateway-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/gateway-service-0.0.1-SNAPSHOT.jar
+    dockerfilePath: ./gateway-service/Dockerfile
     healthCheckPath: /actuator/health
     envVars:
-      - key: SERVER_PORT
-        value: 8082
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+
+      # Eureka internal URL
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: http://discovery-service:8761/eureka
+
+      # JWT issuer is oauth-service inside Render
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
         value: http://oauth-service:8080
-      - key: SPRING_CLOUD_GATEWAY_DISCOVERY_LOCATOR_ENABLED
-        value: "true"
-      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWEDORIGINS
+
+      # CORS: allow your frontend. For now "*", later restrict.
+      - key: CORS_ALLOWED_ORIGINS
         value: "*"
-      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWEDMETHODS
-        value: GET,POST,PUT,DELETE,OPTIONS
-      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWEDHEADERS
-        value: "*"
-      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_EXPOSEDHEADERS
-        value: Authorization
-      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWCREDENTIALS
-        value: "true"
+
+  # ----------------- OAUTH / AUTH SERVER -----------------
   - type: pserv
     name: oauth-service
-    env: java
-    plan: free
+    runtime: docker
+    plan: starter
     rootDir: oauth
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/demo-0.0.1-SNAPSHOT.jar
+    dockerfilePath: ./oauth/Dockerfile
     envVars:
-      - key: SERVER_PORT
-        value: 8080
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: http://discovery-service:8761/eureka
+
+      # DB from tokendb (jdbcUrl)
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
           name: tokendb
-          property: connectionString
+          property: jdbcUrl
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb
@@ -71,64 +71,80 @@ services:
         fromDatabase:
           name: tokendb
           property: password
-      - key: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI
-        value: https://your-gateway-service-url.onrender.com/oauth-service/login/oauth2/code/google
+
+      # Google OAuth client (set values via dashboard if you prefer)
+      - key: GOOGLE_CLIENT_ID
+        sync: false      # set actual value in Render UI
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false      # set actual value in Render UI
+      - key: GOOGLE_REDIRECT_URI
+        value: https://<your-gateway>.onrender.com/oauth-service/login/oauth2/code/google
+
+  # ----------------- PORTFOLIO SERVICE -----------------
   - type: pserv
     name: portfolio-service
-    env: java
-    plan: free
+    runtime: docker
+    plan: starter
     rootDir: portfolio-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/portfolio-service-0.0.1-SNAPSHOT.jar
+    dockerfilePath: ./portfolio-service/Dockerfile
     envVars:
-      - key: SERVER_PORT
-        value: 8084
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: http://discovery-service:8761/eureka
+
+      # DB from portfolio-db (jdbcUrl)
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
-          name: portfolio_db
-          property: connectionString
+          name: portfolio-db
+          property: jdbcUrl
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
-          name: portfolio_db
+          name: portfolio-db
           property: user
       - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
-          name: portfolio_db
+          name: portfolio-db
           property: password
+
+      # JWT validation: JWKS from oauth-service inside Render
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
         value: http://oauth-service:8080/oauth2/jwks
+
+      # reporting-service base URL (internal)
       - key: CLIENTS_REPORTING_BASE_URL
-        value: http://gateway-service:8082/reporting-service
-  - type: pserv
-    name: product-service
-    env: java
-    plan: free
-    rootDir: product-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/product-service-0.0.1-SNAPSHOT.jar
-    envVars:
-      - key: SERVER_PORT
-        value: 8083
-      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-        value: https://accounts.google.com
+        value: http://reporting-service:8083
+
+      # AI / OpenAI – configure via dashboard for safety
+      - key: AI_OPENAI_API_KEY
+        sync: false
+      - key: AI_OPENAI_API_BASE
+        value: https://api.openai.com/v1
+      - key: AI_OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: AI_OPENAI_INSECURE_SSL
+        value: "false"
+
+  # ----------------- REPORTING SERVICE -----------------
   - type: pserv
     name: reporting-service
-    env: java
-    plan: free
+    runtime: docker
+    plan: starter
     rootDir: reporting-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/reporting-service-1.0.0.jar
+    dockerfilePath: ./reporting-service/Dockerfile
     envVars:
-      - key: SERVER_PORT
-        value: 8083
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: http://discovery-service:8761/eureka
+
+      # DB from tokendb
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
           name: tokendb
-          property: connectionString
+          property: jdbcUrl
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb
@@ -137,32 +153,30 @@ services:
         fromDatabase:
           name: tokendb
           property: password
+
+      # JWT JWKS from oauth-service
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
         value: http://oauth-service:8080/oauth2/jwks
-      - key: SPRING_MVC_CORS_ALLOWED_ORIGINS
-        value: "*"
-      - key: SPRING_MVC_CORS_ALLOWED_METHODS
-        value: GET,POST,PUT,DELETE,OPTIONS
-      - key: SPRING_MVC_CORS_ALLOWED_HEADERS
-        value: "*"
-      - key: SPRING_MVC_CORS_ALLOW_CREDENTIALS
-        value: "true"
+
+  # ----------------- SHEET IMPORT SERVICE -----------------
   - type: pserv
     name: sheet-import-service
-    env: java
-    plan: free
+    runtime: docker
+    plan: starter
     rootDir: sheet-import-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/sheet-import-service-1.0.0.jar
+    dockerfilePath: ./sheet-import-service/Dockerfile
     envVars:
-      - key: SERVER_PORT
-        value: 8085
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: http://discovery-service:8761/eureka
+
+      # DB from tokendb
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
           name: tokendb
-          property: connectionString
+          property: jdbcUrl
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb
@@ -171,3 +185,7 @@ services:
         fromDatabase:
           name: tokendb
           property: password
+
+      # Google SA credentials file path (secret file mounted on Render)
+      - key: GOOGLE_SA_CREDENTIALS_FILE
+        value: /etc/secrets/google-sa-credentials.json
