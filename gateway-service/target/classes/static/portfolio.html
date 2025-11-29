@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Portfolio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root { --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --soft:#eef2ff; --border:#e5e7eb; --primary:#2563eb; }
+        body{ margin:0; font-family:Segoe UI, Arial, sans-serif; background:#f9fafb; color:#111827; }
+        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; }
+        .brand{ font-weight:700; letter-spacing:.3px; }
+        .links a{ color:#cbd5e1; text-decoration:none; padding:8px 10px; border-radius:8px; margin-left:8px; }
+        .links a.active, .links a:hover{ color:#fff; background:rgba(255,255,255,.1); }
+        .wrap{ padding:20px; max-width:1300px; margin:0 auto; }
+
+        .cards{ display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; }
+        .card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+        .card .k{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+        .card .v{ font-size:20px; font-weight:700; }
+
+        .toolbar{ display:flex; gap:10px; align-items:center; margin:16px 0; }
+        .toolbar input{ padding:8px; border:1px solid var(--border); border-radius:8px; min-width:260px; }
+        .btn{ padding:8px 12px; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+        .btn-primary{ background:var(--primary); color:white; }
+        .btn-outline{ background:#fff; border:1px solid var(--border); }
+        .btn-danger{ background:#ef4444; color:white; }
+        .btn-muted{ background:#e5e7eb; }
+
+        table{ width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+        th,td{ padding:10px 12px; font-size:14px; border-bottom:1px solid var(--border); }
+        th{ background:#f3f4f6; text-align:left; font-weight:600; color:#374151; }
+        tr:hover td{ background:#f9fafc; }
+        td.num{ text-align:right; }
+        td.actions{ white-space:nowrap; }
+
+        .muted{ color:var(--muted); font-size:12px; margin-top:8px; }
+
+        /* Modal */
+        .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:20; }
+        .modal{ width:520px; max-width:95vw; background:#fff; border-radius:12px; border:1px solid var(--border); box-shadow:0 12px 40px rgba(0,0,0,.25); }
+        .modal header{ padding:14px 16px; border-bottom:1px solid var(--border); font-weight:700; }
+        .modal .body{ padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .modal .field{ display:flex; flex-direction:column; gap:6px; }
+        .modal .field label{ font-size:12px; color:var(--muted); }
+        .modal .field input, .modal .field textarea{
+          padding:8px; border:1px solid var(--border); border-radius:8px;
+        }
+        .modal footer{ padding:14px 16px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+                .sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .sortable::after {
+            content: " ⬍";
+            font-size: 0.75em;
+            color: #aaa;
+        }
+        .sorted-asc::after {
+            content: " ↑";
+            color: #444;
+        }
+        .sorted-desc::after {
+            content: " ↓";
+            color: #444;
+        }
+
+
+        .err{ color:#ef4444; font-size:13px; margin-left:10px; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="index.html">Dashboard</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html" class="active">Portfolio</a>
+    </div>
+</div>
+
+<div class="wrap">
+    <h2 style="margin:6px 0 14px">Portfolio</h2>
+
+    <!-- KPIs -->
+    <div class="cards" id="kpi-cards">
+        <div class="card"><div class="k">Total Invested</div><div class="v" id="kpi-invested">–</div></div>
+        <div class="card"><div class="k">Current Value</div><div class="v" id="kpi-current">–</div></div>
+        <div class="card"><div class="k">P/L</div><div class="v" id="kpi-pl">–</div></div>
+        <div class="card"><div class="k">P/L %</div><div class="v" id="kpi-plp">–</div></div>
+        <div class="card"><div class="k">Day P/L</div><div class="v" id="kpi-day">–</div></div>
+        <div class="card"><div class="k">Day P/L %</div><div class="v" id="kpi-dayp">–</div></div>
+
+    </div>
+    <!-- AI Summary row -->
+    <div id="ai-summary-wrap" style="margin:10px 0; display:none;">
+  <span id="ai-summary-badge" style="font-size:12px;padding:2px 6px;border-radius:6px;background:#eef;color:#334;margin-right:8px;">
+    AI insight
+  </span>
+        <span id="ai-summary" class="muted"></span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <input id="filter" placeholder="Filter by ticker or name…" />
+        <button id="apply-filter" class="btn btn-outline">Apply</button>
+        <span class="spacer" style="flex:1"></span>
+        <button id="btn-add" class="btn btn-primary">+ Add Position</button>
+        <button id="logout-btn" class="btn btn-muted">Logout</button>
+        <span id="err" class="err"></span>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow:auto;">
+        <table>
+            <thead>
+            <tr>
+                <th style="width:60px">#</th>
+
+                <th class="sortable" onclick="sortBy('ticker')" style="width:120px">
+                    Ticker
+                </th>
+
+                <th class="sortable" onclick="sortBy('quantity')" style="width:100px">
+                    Qty
+                </th>
+
+                <th class="sortable" onclick="sortBy('buyPrice')" style="width:120px">
+                    Buy ₹
+                </th>
+
+                <th style="width:140px">Buy Date</th>
+
+                <th class="sortable num" onclick="sortBy('invested')">
+                    Invested
+                </th>
+
+                <th class="sortable num" onclick="sortBy('cmp')">
+                    CMP ₹
+                </th>
+
+                <th class="sortable num" onclick="sortBy('current')">
+                    Current
+                </th>
+
+                <th class="sortable num" onclick="sortBy('pl')">
+                    P/L
+                </th>
+
+                <th class="sortable num" onclick="sortBy('plp')">
+                    P/L %
+                </th>
+
+                <th class="sortable num" onclick="sortBy('dayPct')">
+                    Daily Change %
+                </th>
+
+                <th style="width:180px">Notes</th>
+                <th style="width:160px">Actions</th>
+            </tr>
+            </thead>
+
+            <tbody id="rows">
+            <tr><td colspan="12" class="muted">Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="muted">Live prices comes from Google finance API. P/L may exclude fees and taxes.</div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal">
+        <header id="modal-title">Add Position</header>
+        <div class="body">
+            <div class="field">
+                <label for="m-ticker">Ticker</label>
+                <input id="m-ticker" list="ticker-suggestions" placeholder="Type: TCS, RELIANCE, NSE:INFY..." />
+                <datalist id="ticker-suggestions"></datalist>
+            </div>
+            <div class="field">
+                <label for="m-qty">Quantity</label>
+                <input id="m-qty" type="number" min="1" />
+            </div>
+            <div class="field">
+                <label for="m-price">Buy Price ₹</label>
+                <input id="m-price" type="number" min="0" step="0.01" />
+            </div>
+            <div class="field">
+                <label for="m-date">Buy Date</label>
+                <input id="m-date" type="date" />
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+                <label for="m-notes">Notes</label>
+                <textarea id="m-notes" rows="3" placeholder="Optional note…"></textarea>
+            </div>
+        </div>
+        <footer>
+            <button class="btn btn-outline" id="m-cancel">Cancel</button>
+            <button class="btn btn-primary" id="m-save">Save</button>
+        </footer>
+    </div>
+</div>
+
+<script src="portfolio.js" defer></script>
+</body>
+</html>

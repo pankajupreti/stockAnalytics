@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Top Gainers Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f6f9;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .filters {
+            margin-bottom: 15px;
+        }
+        .filters form {
+            display: inline;
+        }
+        .filters button {
+            margin-right: 10px;
+            padding: 5px 10px;
+            border: 1px solid #2c3e50;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+        .filters button.active-filter {
+            background-color: #2c3e50;
+            color: white;
+            font-weight: bold;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #2c3e50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        input[type="number"], input[type="text"], select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            padding: 6px 12px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #1a252f;
+        }
+        .positive {
+            color: green;
+        }
+        .negative {
+            color: red;
+        }
+        .pagination {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .pagination a {
+            margin: 0 5px;
+            padding: 5px 10px;
+            text-decoration: none;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background-color: #fff;
+            color: #333;
+        }
+        .pagination a.active {
+            background-color: #2c3e50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<h1>Top Gainers Dashboard</h1>
+
+<div class="filters">
+    <form method="get" th:action="@{/dashboard}">
+        <input type="hidden" name="view" value="all">
+        <button type="submit" th:classappend="${view} == 'all' ? 'active-filter'">All</button>
+    </form>
+    <form method="get" th:action="@{/dashboard}">
+        <input type="hidden" name="view" value="52w">
+        <button type="submit" th:classappend="${view} == '52w' ? 'active-filter'">📈 52-Week Highs</button>
+    </form>
+    <form method="get" th:action="@{/dashboard}">
+        <input type="hidden" name="view" value="recent">
+        <button type="submit" th:classappend="${view} == 'recent' ? 'active-filter'">🆕 Recent IPOs</button>
+    </form>
+    <form method="get" th:action="@{/dashboard}">
+        <input type="hidden" name="view" value="daily">
+        <button type="submit" th:classappend="${view} == 'daily' ? 'active-filter'">📊 Top Daily Movers</button>
+    </form>
+</div>
+
+<form th:action="@{/dashboard}" method="get">
+    <input type="hidden" name="view" th:value="${view}">
+    Search <input type="text" name="search" placeholder="Ticker or Name" th:value="${search}">
+    Market Cap ≥ <input type="number" name="minMarketCap" th:value="${minMarketCap}">
+    Daily Change ≥ <input type="number" name="minDailyChange" th:value="${minDailyChange}">
+    Weekly Change ≥ <input type="number" name="minRank1Week" th:value="${minRank1Week}">
+    Monthly Change ≥ <input type="number" name="minRank1Month" th:value="${minRank1Month}">
+    Sort By:
+    <select name="sortBy">
+        <option value="rank1Week" th:selected="${sortBy == 'rank1Week'}">Week %</option>
+        <option value="rank1Month" th:selected="${sortBy == 'rank1Month'}">Month %</option>
+        <option value="marketCap" th:selected="${sortBy == 'marketCap'}">Market Cap</option>
+        <option value="dailyChange" th:selected="${sortBy == 'dailyChange'}">Daily %</option>
+    </select>
+    <select name="order">
+        <option value="desc" th:selected="${order == 'desc'}">Descending</option>
+        <option value="asc" th:selected="${order == 'asc'}">Ascending</option>
+    </select>
+    <input type="submit" value="Filter">
+    <input type="hidden" name="page" th:value="${page}">
+</form>
+
+<table>
+    <thead>
+    <tr>
+        <th>Sl. No</th>
+        <th>Ticker</th>
+        <th>Name</th>
+        <th>CMP</th>
+        <th>Daily %</th>
+        <th>Week %</th>
+        <th>Month %</th>
+        <th>Market Cap</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="stock, iterStat : ${stocks}">
+        <td th:text="${(page != null ? page : 0) * 50 + iterStat.index + 1}"></td>
+        <td th:text="${stock.ticker}"></td>
+        <td th:text="${stock.name}"></td>
+        <td th:text="${stock.cmp}"></td>
+        <td th:text="${stock.dailyChange}" th:classappend="${stock.dailyChange != null and stock.dailyChange >= 0} ? 'positive' : 'negative'"></td>
+        <td th:text="${stock.rank1Week}" th:classappend="${stock.rank1Week != null and stock.rank1Week >= 0} ? 'positive' : 'negative'"></td>
+        <td th:text="${stock.rank1Month}" th:classappend="${stock.rank1Month != null and stock.rank1Month >= 0} ? 'positive' : 'negative'"></td>
+        <td th:text="${stock.marketCap}"></td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="pagination">
+    <a th:if="${page > 0}" th:href="@{/dashboard(view=${view}, page=${page - 1}, search=${search}, minMarketCap=${minMarketCap}, minDailyChange=${minDailyChange}, minRank1Week=${minRank1Week}, minRank1Month=${minRank1Month}, sortBy=${sortBy}, order=${order})}">Previous</a>
+    <a th:text="${page + 1}" class="active"></a>
+    <a th:href="@{/dashboard(view=${view}, page=${page + 1}, search=${search}, minMarketCap=${minMarketCap}, minDailyChange=${minDailyChange}, minRank1Week=${minRank1Week}, minRank1Month=${minRank1Month}, sortBy=${sortBy}, order=${order})}">Next</a>
+</div>
+
+<!-- ✅ Add auto-refresh JS here -->
+<script>
+    setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      window.location.href = window.location.pathname + "?" + params.toString();
+    }, 300000); // 5 minutes = 300,000 ms
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+server:
+  port: ${PORT:8761}
+
+spring:
+  application:
+    name: discovery-service
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+# Optional: Expose health for Render health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"

@@ -1,0 +1,173 @@
+databases:
+  - name: tokendb
+    databaseName: tokendb
+    user: postgres
+    plan: free
+  - name: portfolio_db
+    databaseName: portfolio_db
+    user: postgres
+    plan: free
+
+services:
+  - type: pserv
+    name: discovery-service
+    env: java
+    plan: free
+    rootDir: discovery-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/discovery-service-1.0.0.jar
+    healthCheckPath: /
+    envVars:
+      - key: SERVER_PORT
+        value: 8761
+  - type: web
+    name: gateway-service
+    env: java
+    plan: free
+    rootDir: gateway-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/gateway-service-0.0.1-SNAPSHOT.jar
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SERVER_PORT
+        value: 8082
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://discovery-service:8761/eureka
+      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+        value: http://oauth-service:8080
+      - key: SPRING_CLOUD_GATEWAY_DISCOVERY_LOCATOR_ENABLED
+        value: "true"
+      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWEDORIGINS
+        value: "*"
+      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWEDMETHODS
+        value: GET,POST,PUT,DELETE,OPTIONS
+      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWEDHEADERS
+        value: "*"
+      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_EXPOSEDHEADERS
+        value: Authorization
+      - key: SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWCREDENTIALS
+        value: "true"
+  - type: pserv
+    name: oauth-service
+    env: java
+    plan: free
+    rootDir: oauth
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/demo-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: SERVER_PORT
+        value: 8080
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://discovery-service:8761/eureka
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: tokendb
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: tokendb
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: tokendb
+          property: password
+      - key: SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI
+        value: https://your-gateway-service-url.onrender.com/oauth-service/login/oauth2/code/google
+  - type: pserv
+    name: portfolio-service
+    env: java
+    plan: free
+    rootDir: portfolio-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/portfolio-service-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: SERVER_PORT
+        value: 8084
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://discovery-service:8761/eureka
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: portfolio_db
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: portfolio_db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: portfolio_db
+          property: password
+      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+        value: http://oauth-service:8080/oauth2/jwks
+      - key: CLIENTS_REPORTING_BASE_URL
+        value: http://gateway-service:8082/reporting-service
+  - type: pserv
+    name: product-service
+    env: java
+    plan: free
+    rootDir: product-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/product-service-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: SERVER_PORT
+        value: 8083
+      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+        value: https://accounts.google.com
+  - type: pserv
+    name: reporting-service
+    env: java
+    plan: free
+    rootDir: reporting-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/reporting-service-1.0.0.jar
+    envVars:
+      - key: SERVER_PORT
+        value: 8083
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://discovery-service:8761/eureka
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: tokendb
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: tokendb
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: tokendb
+          property: password
+      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+        value: http://oauth-service:8080/oauth2/jwks
+      - key: SPRING_MVC_CORS_ALLOWED_ORIGINS
+        value: "*"
+      - key: SPRING_MVC_CORS_ALLOWED_METHODS
+        value: GET,POST,PUT,DELETE,OPTIONS
+      - key: SPRING_MVC_CORS_ALLOWED_HEADERS
+        value: "*"
+      - key: SPRING_MVC_CORS_ALLOW_CREDENTIALS
+        value: "true"
+  - type: pserv
+    name: sheet-import-service
+    env: java
+    plan: free
+    rootDir: sheet-import-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/sheet-import-service-1.0.0.jar
+    envVars:
+      - key: SERVER_PORT
+        value: 8085
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://discovery-service:8761/eureka
+      - key: SPRING_DATASOURCE_URL
+        fromDatabase:
+          name: tokendb
+          property: connectionString
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: tokendb
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: tokendb
+          property: password
