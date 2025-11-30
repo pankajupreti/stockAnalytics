@@ -21,9 +21,7 @@ services:
 
       # DB
       - key: SPRING_DATASOURCE_URL
-        fromDatabase:
-          name: tokendb-app
-          property: connectionString
+        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb-app
@@ -59,9 +57,7 @@ services:
         value: render
 
       - key: SPRING_DATASOURCE_URL
-        fromDatabase:
-          name: tokendb-app
-          property: connectionString
+        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb-app
@@ -121,9 +117,7 @@ services:
         value: render
 
       - key: SPRING_DATASOURCE_URL
-        fromDatabase:
-          name: tokendb-app
-          property: connectionString
+        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb-app
