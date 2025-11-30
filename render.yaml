@@ -10,11 +10,11 @@ databases:
 services:
   # ---------- OAUTH SERVICE ----------
   - type: web
-    name: oauth-service
+    name: oauth
     runtime: docker
     plan: free
     dockerfilePath: ./oauth/Dockerfile
-    dockerContext: ./oauth-service 
+    dockerContext: ./oauth 
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -41,7 +41,7 @@ services:
 
       # Redirect URL (update after first deploy with real gateway URL)
       - key: GOOGLE_REDIRECT_URI
-        value: https://<gateway-render-url>/oauth-service/login/oauth2/code/google
+        value: https://<gateway-render-url>/oauth/login/oauth2/code/google
 
       # JWKS URL used by other services (update after first deploy)
       - key: AUTH_JWKS_URI
