@@ -3,17 +3,14 @@ FROM maven:3.9.9-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
-# Copy Maven descriptor first (better caching)
-COPY pom.xml .
-# If you use Maven wrapper, you can also:
-# COPY mvnw .
-# COPY .mvn .mvn
+# Copy Maven descriptor (from repo root -> gateway-service folder)
+COPY gateway-service/pom.xml .
 
-# Pre-fetch dependencies (optional, speeds up future builds)
+# Pre-fetch dependencies (optional)
 RUN mvn -q -DskipTests dependency:go-offline
 
 # Copy source
-COPY src ./src
+COPY gateway-service/src ./src
 
 # Build the Spring Boot jar
 RUN mvn -q clean package -DskipTests
@@ -23,10 +20,10 @@ FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
-# Copy the built jar (works regardless of jar file name)
+# Copy the built jar (whatever the name is)
 COPY --from=build /app/target/*.jar app.jar
 
-# Gateway default port (local). Render will override PORT.
+# Gateway default port (Render injects PORT env var too)
 ENV PORT=8082
 
 EXPOSE 8082
