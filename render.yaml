@@ -13,7 +13,8 @@ services:
     name: oauth-service
     runtime: docker
     plan: free
-    dockerfilePath: ./oauth/Dockerfile
+    rootDir: oauth
+    dockerfilePath: Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -32,17 +33,17 @@ services:
           name: tokendb-app
           property: password
 
-      # Google OAuth (set in dashboard)
+      # Google OAuth (set real values in dashboard)
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
-      # Redirect URL (fill after first deploy)
+      # Redirect URL (update after first deploy)
       - key: GOOGLE_REDIRECT_URI
         value: https://<gateway-render-url>/oauth-service/login/oauth2/code/google
 
-      # JWKS URL used by other services (fill after first deploy)
+      # JWKS URL used by other services (update after first deploy)
       - key: AUTH_JWKS_URI
         value: https://<oauth-render-url>/oauth2/jwks
 
@@ -51,7 +52,8 @@ services:
     name: reporting-service
     runtime: docker
     plan: free
-    dockerfilePath: ./reporting-service/Dockerfile
+    rootDir: reporting-service
+    dockerfilePath: Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -77,7 +79,8 @@ services:
     name: portfolio-service
     runtime: docker
     plan: free
-    dockerfilePath: ./portfolio-service/Dockerfile
+    rootDir: portfolio-service
+    dockerfilePath: Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -111,7 +114,8 @@ services:
     name: sheet-import-service
     runtime: docker
     plan: free
-    dockerfilePath: ./sheet-import-service/Dockerfile
+    rootDir: sheet-import-service
+    dockerfilePath: Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -137,7 +141,8 @@ services:
     name: gateway-service
     runtime: docker
     plan: free
-    dockerfilePath: ./gateway-service/Dockerfile
+    rootDir: gateway-service
+    dockerfilePath: Dockerfile
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
