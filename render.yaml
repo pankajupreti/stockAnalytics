@@ -14,6 +14,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./oauth/Dockerfile
+    dockerContext: ./oauth 
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -52,6 +53,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./reporting-service/Dockerfile
+    dockerContext: ./reporting-service
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -78,6 +80,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./portfolio-service/Dockerfile
+    dockerContext: ./portfolio-service 
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
@@ -112,6 +115,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./sheet-import-service/Dockerfile
+     dockerContext: ./sheet-import-service 
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
