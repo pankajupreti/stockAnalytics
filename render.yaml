@@ -137,26 +137,26 @@ services:
         value: /etc/secrets/google-sa.json
 
   # ---------- GATEWAY SERVICE ----------
-  - type: web
-    name: gateway-service
-    runtime: docker
-    plan: free
-    rootDir: gateway-service
-    dockerfilePath: Dockerfile
-    healthCheckPath: /actuator/health
-    envVars:
-      - key: SPRING_PROFILES_ACTIVE
-        value: render
+- type: web
+  name: gateway-service
+  runtime: docker
+  plan: free
+  dockerfilePath: ./gateway-service/Dockerfile
+  healthCheckPath: /actuator/health
+  envVars:
+    - key: SPRING_PROFILES_ACTIVE
+      value: render
 
-      - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-        value: https://<oauth-render-url>
+    - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+      value: https://<oauth-render-url>
 
-      - key: OAUTH_SERVICE_URL
-        value: https://<oauth-render-url>
-      - key: REPORTING_SERVICE_URL
-        value: https://<reporting-render-url>
-      - key: PORTFOLIO_SERVICE_URL
-        value: https://<portfolio-render-url>
+    - key: OAUTH_SERVICE_URL
+      value: https://<oauth-render-url>
+    - key: REPORTING_SERVICE_URL
+      value: https://<reporting-render-url>
+    - key: PORTFOLIO_SERVICE_URL
+      value: https://<portfolio-render-url>
 
-      - key: CORS_ALLOWED_ORIGINS
-        value: "*"
+    - key: CORS_ALLOWED_ORIGINS
+      value: "*"
+
