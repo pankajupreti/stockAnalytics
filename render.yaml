@@ -32,13 +32,13 @@ services:
           name: tokendb-app
           property: password
 
-      # Google OAuth (fill in Render dashboard)
+      # Google OAuth (set in Render dashboard after creating app in Google Cloud)
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
-      # Redirect URL (update after first deploy)
+      # Redirect URL (update after first deploy with real gateway URL)
       - key: GOOGLE_REDIRECT_URI
         value: https://<gateway-render-url>/oauth-service/login/oauth2/code/google
 
@@ -143,6 +143,7 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
+      # TEMP values; replace after first deploy with real service URLs
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
         value: https://google.com
 
