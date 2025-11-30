@@ -14,7 +14,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./oauth/Dockerfile
-    dockerContext: ./oauth 
+    dockerContext: ./oauth-service 
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
