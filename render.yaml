@@ -1,101 +1,102 @@
 databases:
-  - name: tokendb
+  - name: tokendb-app          # renamed to avoid existing secret clash
     databaseName: tokendb
     plan: free
 
-  - name: portfolio_db
+  - name: portfolio-db-app
     databaseName: portfolio_db
     plan: free
 
 services:
-  # OAUTH SERVICE
+  # ---------- OAUTH SERVICE ----------
   - type: web
     name: oauth-service
     runtime: docker
     plan: free
     rootDir: oauth
-    dockerfilePath: ./oauth/Dockerfile
+    # dockerfilePath is relative to rootDir, so just Dockerfile
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
-      # DB
+      # DB (from tokendb-app)
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: connectionString
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: user
       - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: password
 
-      # Google OAuth (set REAL values in Render dashboard)
+      # Google OAuth (set values in Render UI)
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
-      # Redirect URL (public gateway URL)
+      # Redirect URL (replace with your real gateway URL after first deploy)
       - key: GOOGLE_REDIRECT_URI
         value: https://<gateway-render-url>/oauth-service/login/oauth2/code/google
 
-      # JWKS URL used by other services
+      # JWKS URL used by other services (replace <oauth-render-url> later)
       - key: AUTH_JWKS_URI
         value: https://<oauth-render-url>/oauth2/jwks
 
-  # REPORTING SERVICE
+  # ---------- REPORTING SERVICE ----------
   - type: web
     name: reporting-service
     runtime: docker
     plan: free
     rootDir: reporting-service
-    dockerfilePath: ./reporting-service/Dockerfile
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: connectionString
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: user
       - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: password
 
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
         value: https://<oauth-render-url>/oauth2/jwks
 
-  # PORTFOLIO SERVICE
+  # ---------- PORTFOLIO SERVICE ----------
   - type: web
     name: portfolio-service
     runtime: docker
     plan: free
     rootDir: portfolio-service
-    dockerfilePath: ./portfolio-service/Dockerfile
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
-          name: portfolio_db
+          name: portfolio-db-app
           property: connectionString
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
-          name: portfolio_db
+          name: portfolio-db-app
           property: user
       - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
-          name: portfolio_db
+          name: portfolio-db-app
           property: password
 
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
@@ -109,48 +110,50 @@ services:
       - key: AI_OPENAI_MODEL
         value: gpt-4o-mini
 
-  # SHEET IMPORT SERVICE
+  # ---------- SHEET IMPORT SERVICE ----------
   - type: web
     name: sheet-import-service
     runtime: docker
     plan: free
     rootDir: sheet-import-service
-    dockerfilePath: ./sheet-import-service/Dockerfile
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
       - key: SPRING_DATASOURCE_URL
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: connectionString
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: user
       - key: SPRING_DATASOURCE_PASSWORD
         fromDatabase:
-          name: tokendb
+          name: tokendb-app
           property: password
 
       - key: GOOGLE_SA_CREDENTIALS_FILE
         value: /etc/secrets/google-sa.json
 
-  # GATEWAY SERVICE
+  # ---------- GATEWAY SERVICE ----------
   - type: web
     name: gateway-service
     runtime: docker
     plan: free
     rootDir: gateway-service
-    dockerfilePath: ./gateway-service/Dockerfile
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
+      # issuer URI as seen publicly (replace <oauth-render-url> once known)
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
         value: https://<oauth-render-url>
 
+      # Routing to public service URLs (replace placeholders after first deploy)
       - key: OAUTH_SERVICE_URL
         value: https://<oauth-render-url>
       - key: REPORTING_SERVICE_URL
