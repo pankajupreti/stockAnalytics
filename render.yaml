@@ -19,9 +19,9 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
-      # DB
+      # DB (token DB)
       - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2
+        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2?sslmode=require
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb-app
@@ -31,19 +31,19 @@ services:
           name: tokendb-app
           property: password
 
-      # Google OAuth (set in Render dashboard after creating app in Google Cloud)
+      # Google OAuth (set actual values in Render dashboard)
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
-      # Redirect URL (update after first deploy with real gateway URL)
+      # Redirect URL used by Google -> points to gateway
       - key: GOOGLE_REDIRECT_URI
-        value: https://<gateway-render-url>/oauth/login/oauth2/code/google
+        value: https://gateway-service-ux71.onrender.com/login/oauth2/code/google
 
-      # JWKS URL used by other services (update after first deploy)
+      # JWKS URL that other services will call
       - key: AUTH_JWKS_URI
-        value: https://<oauth-render-url>/oauth2/jwks
+        value: https://oauth-ftdn.onrender.com/oauth2/jwks
 
   # ---------- REPORTING SERVICE ----------
   - type: web
@@ -57,7 +57,7 @@ services:
         value: render
 
       - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2
+        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2?sslmode=require
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb-app
@@ -67,8 +67,9 @@ services:
           name: tokendb-app
           property: password
 
+      # Let reporting-service validate JWTs issued by oauth
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
-        value: https://<oauth-render-url>/oauth2/jwks
+        value: https://oauth-ftdn.onrender.com/oauth2/jwks
 
   # ---------- PORTFOLIO SERVICE ----------
   - type: web
@@ -92,12 +93,15 @@ services:
           name: portfolio-db-app
           property: password
 
+      # JWT validation against oauth JWKS
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
-        value: https://<oauth-render-url>/oauth2/jwks
+        value: https://oauth-ftdn.onrender.com/oauth2/jwks
 
+      # Base URL used by portfolio-service to call reporting-service
       - key: CLIENTS_REPORTING_BASE_URL
-        value: https://<reporting-render-url>
+        value: https://reporting-service-c8vd.onrender.com
 
+      # AI config
       - key: AI_OPENAI_API_KEY
         sync: false
       - key: AI_OPENAI_MODEL
@@ -115,7 +119,7 @@ services:
         value: render
 
       - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2
+        value: jdbc:postgresql://dpg-d4m313buibrs738b48l0-a/tokendb_saw2?sslmode=require
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: tokendb-app
@@ -125,8 +129,9 @@ services:
           name: tokendb-app
           property: password
 
+      # Google service account credentials (matches your working setup)
       - key: GOOGLE_SA_CREDENTIALS_FILE
-        value: /etc/secrets/google-sa.json
+        value: file:/etc/secrets/credentials.json
 
   # ---------- GATEWAY SERVICE ----------
   - type: web
@@ -134,20 +139,25 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./gateway-service/Dockerfile
+    dockerContext: ./gateway-service
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
 
-      # TEMP values; replace after first deploy with real service URLs
+      # Resource server at gateway validating tokens issued by oauth
+      # (issuer URI should match what your Authorization Server uses;
+      # if you configured issuer as the oauth base URL, this is correct)
       - key: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-        value: https://google.com
+        value: https://oauth-ftdn.onrender.com
 
+      # Downstream service URLs the gateway routes to
       - key: OAUTH_SERVICE_URL
-        value: https://google.com
+        value: https://oauth-ftdn.onrender.com
       - key: REPORTING_SERVICE_URL
-        value: https://google.com
+        value: https://reporting-service-c8vd.onrender.com
       - key: PORTFOLIO_SERVICE_URL
-        value: https://google.com
+        value: https://portfolio-service-oxon.onrender.com
 
+      # CORS – you can tighten this later to your frontend origin
       - key: CORS_ALLOWED_ORIGINS
         value: "*"
