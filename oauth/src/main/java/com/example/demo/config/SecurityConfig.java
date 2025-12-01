@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,6 +44,12 @@ import java.util.stream.Collectors;
 public class SecurityConfig {
 
     private final JwtEncoder jwtEncoder;
+
+    @Value("${oauth.issuer}")
+    private String issuer;
+
+    @Value("${frontend.base-url}")
+    private String frontendBaseUrl;
 
     public SecurityConfig(JwtEncoder jwtEncoder) {
         this.jwtEncoder = jwtEncoder;
@@ -90,13 +97,14 @@ public class SecurityConfig {
     // 3️⃣ Success Handler → redirect back to SPA
     @Bean
 
+
     public AuthenticationSuccessHandler successHandler() {
         return (request, response, authentication) -> {
             Instant now = Instant.now();
             String scope = authentication.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .collect(Collectors.joining(" "));
-            // 👇 extract OAuth2 user attributes
+
             OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
             OAuth2User principal = authToken.getPrincipal();
 
@@ -104,22 +112,24 @@ public class SecurityConfig {
             String name  = principal.getAttribute("name");
 
             JwtClaimsSet claims = JwtClaimsSet.builder()
-                    .issuer("http://localhost:8080")
+                    .issuer(issuer)                       // <- configurable
                     .issuedAt(now)
                     .expiresAt(now.plus(4, ChronoUnit.HOURS))
-                    .subject(authentication.getName())  // Google subject ID
+                    .subject(authentication.getName())
                     .claim("scope", scope)
                     .claim("email", email)
                     .claim("name", name)
                     .build();
 
             String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
-            System.out.println("printing access token "+token);
-            // redirect to SPA with token in fragment
-            response.sendRedirect("http://localhost:8082/index.html#access_token=" + token);
+            System.out.println("printing access token " + token);
 
+            // redirect to SPA with token, using configurable base URL
+            String redirectUrl = frontendBaseUrl + "/index.html#access_token=" + token;
+            response.sendRedirect(redirectUrl);
         };
     }
+
 
 
     // 4️⃣ Debug logging filter (optional)
