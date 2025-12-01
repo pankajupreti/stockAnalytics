@@ -1,11 +1,14 @@
-spring:
-  profiles:
-    active: render
+
+#comment the whole file
+
+#spring:
+ # profiles:
+  #  active: render
 
 # No overrides needed for Eureka server on Render
 # But you can add health exposure if you want:
-management:
-  endpoints:
-    web:
-      exposure:
-        include: "health,info"
+#management:
+ # endpoints:
+  #  web:
+   #   exposure:
+    #    include: "health,info"

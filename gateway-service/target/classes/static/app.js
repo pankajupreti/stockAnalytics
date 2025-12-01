@@ -2,8 +2,13 @@ const tokenKey = "access_token";
 let currentPage = 0;
 
 // --- Login ---
-document.getElementById("login-btn").addEventListener("click", () => {
+/*document.getElementById("login-btn").addEventListener("click", () => {
   window.location.href = "http://localhost:8082/oauth-service/oauth2/authorization/google";
+});*/
+
+// --- Login ---
+document.getElementById("login-btn").addEventListener("click", () => {
+  window.location.href = "/oauth-service/oauth2/authorization/google";
 });
 
 // --- Logout ---
