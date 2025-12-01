@@ -82,7 +82,7 @@ services:
         value: render
 
       - key: SPRING_DATASOURCE_URL
-        value: jdbc:postgresql://portfolio_db_sk8c_user:bgz9mxxzAmd2AIUgcbPqM5tv0POgKrcd@dpg-d4m313buibrs738b48lg-a/portfolio_db_sk8c
+        value: postgresql://portfolio_db_sk8c_user:bgz9mxxzAmd2AIUgcbPqM5tv0POgKrcd@dpg-d4m313buibrs738b48lg-a/portfolio_db_sk8c
       - key: SPRING_DATASOURCE_USERNAME
         fromDatabase:
           name: portfolio-db-app
