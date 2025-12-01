@@ -139,7 +139,6 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./gateway-service/Dockerfile
-    dockerContext: ./gateway-service
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: render
