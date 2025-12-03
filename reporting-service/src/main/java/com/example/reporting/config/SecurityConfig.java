@@ -29,7 +29,8 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "/styles.css", "/app.js").permitAll() // allow static files
                         .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt());
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt())
+        .requestCache(requestCache -> requestCache.disable()); // don't save &continue stuff
         return http.build();
     }/*
 
