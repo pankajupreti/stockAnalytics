@@ -1,6 +1,9 @@
 // Reuse the same token handling you already have
 const tokenKey = "access_token";
-const API_BASE = "http://localhost:8082/portfolio-service/api/portfolio"; // via gateway
+const API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8082/portfolio-service/api/portfolio" // local gateway
+    : `${window.location.origin}/portfolio-service/api/portfolio`; // Render gateway
 let sortState = { column: null, asc: true };
 let positions = [];     // cache of positions from API
 let editingId = null;   // null => create, otherwise update

@@ -56,9 +56,12 @@ async function fetchDashboard(token) {
       pageSize: document.getElementById("pageSize").value
     });
 
-    const res = await fetch("http://localhost:8082/reporting-service/api/dashboard?" + params.toString(), {
-      headers: { "Authorization": "Bearer " + token }
-    });
+      const res = await fetch(
+        "/reporting-service/api/dashboard?" + params.toString(),
+        {
+          headers: { Authorization: "Bearer " + token }
+        }
+      );
 
     if (!res.ok) throw new Error("Unauthorized or token expired");
     const data = await res.json();
