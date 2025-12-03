@@ -3,6 +3,7 @@ package com.example.gateway.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
@@ -26,6 +27,9 @@ public class SecurityConfig {
                         // allow dashboard page but APIs will still be protected
                         .pathMatchers("/dashboard/**").permitAll()
 
+                        // OAuth2 login & callback handled by *gateway itself*
+                        .pathMatchers("/login/**", "/oauth2/**").permitAll()
+
                         // allow OAuth handshake endpoints proxied to oauth-service
                         .pathMatchers("/oauth-service/oauth2/**").permitAll()
                         .pathMatchers("/oauth-service/login/oauth2/**").permitAll() // Google callback
@@ -35,6 +39,8 @@ public class SecurityConfig {
                         // everything else requires JWT
                         .anyExchange().authenticated()
                 )
+                // enable OAuth2 login (Google client from properties) for app-render
+                .oauth2Login(Customizer.withDefaults())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt()) // validate JWT on APIs
                 .build();
     }
