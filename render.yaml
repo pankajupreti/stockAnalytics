@@ -39,7 +39,7 @@ services:
 
       # Redirect URL used by Google -> points to gateway
       - key: GOOGLE_REDIRECT_URI
-        value: https://gateway-service-ux71.onrender.com/login/oauth2/code/google
+        value: https://gateway-service-ux71.onrender.com/oauth-service/login/oauth2/code/google
 
       # JWKS URL that other services will call
       - key: AUTH_JWKS_URI

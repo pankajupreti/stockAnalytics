@@ -40,7 +40,7 @@ public class SecurityConfig {
                         .anyExchange().authenticated()
                 )
                 // enable OAuth2 login (Google client from properties) for app-render
-                .oauth2Login(Customizer.withDefaults())
+               // .oauth2Login(Customizer.withDefaults())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt()) // validate JWT on APIs
                 .build();
     }
