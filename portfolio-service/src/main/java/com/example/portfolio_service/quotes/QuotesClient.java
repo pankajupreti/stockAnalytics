@@ -27,7 +27,7 @@ public class QuotesClient {
 
     public QuotesClient(
             WebClient.Builder builder,
-            @Value("${quotes.api.base:http://localhost:8082/reporting-service/api}") String base
+            @Value("${quotes.api.base}") String base
     ) {
         this.webClient = builder.baseUrl(base).build();
     }

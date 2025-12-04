@@ -34,7 +34,7 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
         // your UI origin(s)
-        cfg.setAllowedOrigins(List.of("http://localhost:8082"));
+        cfg.setAllowedOrigins(List.of("http://localhost:8082", "https://gateway-service-ux71.onrender.com"));
         cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
         cfg.setAllowedHeaders(List.of("Authorization","Content-Type","Accept"));
         cfg.setExposedHeaders(List.of("Authorization"));
