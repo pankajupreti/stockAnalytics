@@ -1,187 +1,320 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Stock Analytics Dashboard</title>
-    <style>
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          margin: 0;
-          background: #f9fafb;
-          color: #333;
-        }
-        /* Navbar */
-        .navbar {
-          background: #0f172a;
-          color: white;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px 18px;
-        }
-        .navbar .brand { font-weight: 700; letter-spacing: 0.4px; }
-        .navbar .links { display: flex; gap: 12px; }
-        .navbar a {
-          color: #cbd5e1;
-          text-decoration: none;
-          padding: 8px 10px;
-          border-radius: 8px;
-        }
-        .navbar a.active, .navbar a:hover {
-          color: white;
-          background: rgba(255,255,255,0.1);
-        }
-
-        /* rest of your existing CSS */
-        h2 { color: #1f2937; margin: 20px; }
-
-        .dashboard-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin: 20px;
-        }
-
-        button {
-          padding: 6px 14px;
-          border-radius: 6px;
-          border: none;
-          cursor: pointer;
-          font-weight: 600;
-          transition: background 0.2s;
-        }
-        .btn-primary { background: #2563eb; color: white; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-secondary { background: #e5e7eb; color: #111827; }
-        .btn-secondary:hover { background: #d1d5db; }
-
-        .filters {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          margin: 15px 20px;
-          padding: 12px;
-          background: #fff;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-
-        .filters input, .filters select {
-          padding: 6px 8px;
-          border: 1px solid #ccc;
-          border-radius: 6px;
-          font-size: 14px;
-        }
-
-        table {
-          width: calc(100% - 40px);
-          border-collapse: collapse;
-          margin: 0 20px;
-          background: white;
-          border-radius: 8px;
-          overflow: hidden;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          table-layout: fixed;
-        }
-
-        th, td {
-          padding: 10px;
-          font-size: 14px;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          overflow: hidden;
-        }
-
-        th {
-          background: #f3f4f6;
-          font-weight: 600;
-          color: #374151;
-        }
-
-        th:nth-child(1), td:nth-child(1) { width: 6%; text-align: center; }
-        th:nth-child(2), td:nth-child(2) { width: 12%; text-align: left; }
-        th:nth-child(3), td:nth-child(3) { width: 30%; text-align: left; }
-        th:nth-child(4), td:nth-child(4) { width: 10%; text-align: right; }
-        th:nth-child(5), td:nth-child(5) { width: 10%; text-align: right; }
-        th:nth-child(6), td:nth-child(6) { width: 10%; text-align: right; }
-        th:nth-child(7), td:nth-child(7) { width: 10%; text-align: right; }
-        th:nth-child(8), td:nth-child(8) { width: 10%; text-align: right; }
-        th:nth-child(9), td:nth-child(9) { width: 12%; text-align: right; }
-
-        tr:nth-child(even) { background: #fafafa; }
-        tr:hover { background: #f1f5f9; }
-        td.positive { color: green; font-weight: 600; }
-        td.negative { color: red; font-weight: 600; }
-
-        .pagination {
-          margin: 15px 20px;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-    </style>
+    <meta charset="UTF-8" />
+    <title>Stock Analytics – Intelligent Portfolio & Market Insights</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
 </head>
 <body>
+<header class="sa-header">
+    <div class="sa-header-inner">
+        <div class="sa-logo">
+            <div class="sa-logo-mark">SA</div>
+            <div class="sa-logo-text">
+                <span class="sa-logo-title">Stock Analytics</span>
+                <span class="sa-logo-subtitle">by Pankaj</span>
+            </div>
+        </div>
 
-<div class="navbar">
-    <div class="brand">Stock Analytics</div>
-    <div class="links">
-        <a href="index.html" class="active">Dashboard</a>
-        <a href="marketbreadth.html">Market Breadth</a>
-        <a href="portfolio.html">Portfolio</a>
+        <nav class="sa-nav">
+            <!-- Dashboard: same page, scroll to dashboard block -->
+            <a href="index.html#dashboard-anchor" class="sa-nav-link">Dashboard</a>
+
+            <!-- Other pages: keep old layouts in separate files -->
+            <a href="marketbreadth.html" class="sa-nav-link">Market Breadth</a>
+            <a href="portfolio.html" class="sa-nav-link">Portfolio</a>
+        </nav>
+
+
     </div>
-</div>
+</header>
+<main class="sa-main">
 
-<h2>Stock Analytics Dashboard</h2>
+    <!-- 👇 Landing / marketing content (shown before login) -->
+    <div id="landing-section">
 
-<div id="login-section">
-    <button id="login-btn" class="btn-primary">Login with Google</button>
-</div>
+        <!-- HERO (Login section lives here) -->
+        <section class="sa-hero">
+            <div class="sa-hero-content">
+                <h1 class="sa-hero-title">
+                    Your stock portfolio.<br />
+                    <span class="sa-hero-gradient">One live analytics dashboard.</span>
+                </h1>
+                <p class="sa-hero-subtitle">
+                    Track your holdings, market breadth and risk in real time.
+                    Powered by Google Sheets, Spring microservices and OAuth2 security.
+                </p>
 
-<div id="dashboard-section" style="display:none;">
-    <div class="dashboard-header">
-        <h3 id="welcome-text">Welcome!</h3>
-        <button id="logout-btn" class="btn-secondary">Logout</button>
+                <!-- LOGIN SECTION (used by app.js) -->
+                <div class="sa-hero-actions" id="login">
+                    <div id="login-section">
+                        <button id="login-btn" class="sa-btn sa-btn-primary">
+                            <img src="assets/images/google-logo.svg" alt="" class="sa-google-icon" />
+                            <span>Login with Google</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sa-hero-stats">
+                    <div class="sa-stat-card">
+                        <span class="sa-stat-label">Tickers tracked</span>
+                        <span class="sa-stat-value">3,800+</span>
+                    </div>
+                    <div class="sa-stat-card">
+                        <span class="sa-stat-label">Alerts engine</span>
+                        <span class="sa-stat-value">Real-time</span>
+                    </div>
+                    <div class="sa-stat-card">
+                        <span class="sa-stat-label">Refresh</span>
+                        <span class="sa-stat-value">Every 5 min</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sa-hero-visual">
+                <div class="sa-glass-card sa-glass-main">
+                    <div class="sa-glass-header">
+                        <span>Portfolio snapshot</span>
+                        <span class="sa-pill sa-pill-green">Live</span>
+                    </div>
+                    <div class="sa-glass-body">
+                        <div class="sa-chart-placeholder">
+                            <div class="sa-chart-line sa-chart-line-1"></div>
+                            <div class="sa-chart-line sa-chart-line-2"></div>
+                            <div class="sa-chart-line sa-chart-line-3"></div>
+                        </div>
+
+                        <div class="sa-mini-grid">
+                            <div class="sa-mini-card">
+                                <span class="sa-mini-label">1D P&amp;L</span>
+                                <span class="sa-mini-value sa-mini-up">+2.4%</span>
+                            </div>
+                            <div class="sa-mini-card">
+                                <span class="sa-mini-label">Win ratio</span>
+                                <span class="sa-mini-value">63%</span>
+                            </div>
+                            <div class="sa-mini-card">
+                                <span class="sa-mini-label">Drawdown</span>
+                                <span class="sa-mini-value sa-mini-down">-4.1%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sa-glass-card sa-glass-side">
+                    <div class="sa-glass-header">
+                        <span>Upcoming alerts</span>
+                    </div>
+                    <ul class="sa-alert-list">
+                        <li class="sa-alert-item sa-alert-up">
+                            <span class="sa-alert-ticker">TCS</span>
+                            <span class="sa-alert-text">Price &gt; 3% above buy</span>
+                        </li>
+                        <li class="sa-alert-item sa-alert-down">
+                            <span class="sa-alert-ticker">INFY</span>
+                            <span class="sa-alert-text">SL hit: -5% from buy</span>
+                        </li>
+                        <li class="sa-alert-item">
+                            <span class="sa-alert-ticker">HDFCBANK</span>
+                            <span class="sa-alert-text">New 30-day high</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURES -->
+        <section id="features" class="sa-section">
+            <h2 class="sa-section-title">Built for serious traders and investors</h2>
+            <p class="sa-section-subtitle">
+                Stock Analytics brings together live quotes, Google Sheets, and a microservices backend
+                so you always know exactly what your portfolio is doing.
+            </p>
+
+            <div class="sa-feature-grid">
+                <article class="sa-feature-card">
+                    <div class="sa-feature-icon">📊</div>
+                    <h3 class="sa-feature-title">Deep portfolio view</h3>
+                    <p class="sa-feature-text">
+                        See per-stock and total P&amp;L, allocation and exposure. Drill down into each
+                        position with live CMP, daily change and risk levels.
+                    </p>
+                </article>
+
+                <article class="sa-feature-card">
+                    <div class="sa-feature-icon">🌊</div>
+                    <h3 class="sa-feature-title">Market breadth dashboard</h3>
+                    <p class="sa-feature-text">
+                        Track advances/declines, new highs/lows and sector momentum to understand
+                        whether the market is supporting your trades.
+                    </p>
+                </article>
+
+                <article class="sa-feature-card">
+                    <div class="sa-feature-icon">🔔</div>
+                    <h3 class="sa-feature-title">Smart alerts</h3>
+                    <p class="sa-feature-text">
+                        Set alerts for drawdown, breakout or custom levels right when you add a stock.
+                        The backend scheduler checks conditions every few minutes.
+                    </p>
+                </article>
+
+                <article class="sa-feature-card">
+                    <div class="sa-feature-icon">🧮</div>
+                    <h3 class="sa-feature-title">Powered by Google Sheets</h3>
+                    <p class="sa-feature-text">
+                        Manage your trades in Google Sheets. Our Sheet Import Service syncs data into
+                        the portfolio engine without you touching a database.
+                    </p>
+                </article>
+
+                <article class="sa-feature-card">
+                    <div class="sa-feature-icon">🛡️</div>
+                    <h3 class="sa-feature-title">Secure by design</h3>
+                    <p class="sa-feature-text">
+                        OAuth2 login via Google, tokenized API access and microservices isolation.
+                        Your credentials never touch the app.
+                    </p>
+                </article>
+
+                <article class="sa-feature-card">
+                    <div class="sa-feature-icon">⚙️</div>
+                    <h3 class="sa-feature-title">Microservices architecture</h3>
+                    <p class="sa-feature-text">
+                        Separate services for auth, reporting, portfolio and sheet import – all wired
+                        through a Spring Cloud Gateway for clean routing.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section id="how-it-works" class="sa-section sa-section-muted">
+            <h2 class="sa-section-title">How Stock Analytics works</h2>
+
+            <div class="sa-steps">
+                <div class="sa-step">
+                    <div class="sa-step-number">1</div>
+                    <div class="sa-step-body">
+                        <h3>Login with Google</h3>
+                        <p>Authenticate via OAuth2 on the gateway. No accounts to create, no passwords to remember.</p>
+                    </div>
+                </div>
+                <div class="sa-step">
+                    <div class="sa-step-number">2</div>
+                    <div class="sa-step-body">
+                        <h3>Connect your sheet</h3>
+                        <p>Your trades live in a Google Sheet. The Sheet Import Service syncs them into the portfolio DB.</p>
+                    </div>
+                </div>
+                <div class="sa-step">
+                    <div class="sa-step-number">3</div>
+                    <div class="sa-step-body">
+                        <h3>Explore your dashboard</h3>
+                        <p>View portfolio, market breadth, alerts and detailed quotes – all updated every few minutes.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div> <!-- 👆 end #landing-section -->
+
+
+    <!-- DASHBOARD (old working markup, styled to match) -->
+    <!-- DASHBOARD TITLE + CONTENT (exactly like old page) -->
+    <h2 style="margin: 20px;">Stock Analytics Dashboard</h2>
+
+    <div id="dashboard-section" style="display:none;">
+        <div class="dashboard-header">
+            <h3 id="welcome-text">Welcome!</h3>
+            <button id="logout-btn" class="btn-secondary">Logout</button>
+        </div>
+
+        <div class="filters">
+            <input type="text" id="search" placeholder="Search Ticker or Name">
+            <input type="number" id="minMarketCap" placeholder="Min Market Cap">
+            <input type="number" id="minDailyChange" step="0.01" placeholder="Min Daily Change">
+            <input type="number" id="minRank1Week" placeholder="Min Rank 1W">
+            <input type="number" id="minRank1Month" placeholder="Min Rank 1M">
+            <select id="sortBy">
+                <option value="cmp">CMP</option>
+                <option value="marketCap">Market Cap</option>
+                <option value="dailyChange">Daily Change</option>
+                <option value="rank1Week">Rank 1 Week</option>
+                <option value="rank1Month">Rank 1 Month</option>
+                <option value="rank1Year">Rank 1 Year</option>
+                <option value="name">Name</option>
+                <option value="ticker">Ticker</option>
+            </select>
+            <select id="order">
+                <option value="desc">Desc</option>
+                <option value="asc">Asc</option>
+            </select>
+            <select id="pageSize">
+                <option value="20">20</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+            </select>
+            <button id="apply-filters" class="btn-primary">Apply</button>
+        </div>
+
+        <div id="dashboard-content" style="margin: 0 20px;">(Loading...)</div>
+
+        <div class="pagination">
+            <button id="prev-page" class="btn-secondary">Prev</button>
+            <span id="page-info">Page 1</span>
+            <button id="next-page" class="btn-secondary">Next</button>
+        </div>
     </div>
 
-    <div class="filters">
-        <input type="text" id="search" placeholder="Search Ticker or Name">
-        <input type="number" id="minMarketCap" placeholder="Min Market Cap">
-        <input type="number" id="minDailyChange" step="0.01" placeholder="Min Daily Change">
-        <input type="number" id="minRank1Week" placeholder="Min Rank 1W">
-        <input type="number" id="minRank1Month" placeholder="Min Rank 1M">
-        <select id="sortBy">
-            <option value="cmp">CMP</option>
-            <option value="marketCap">Market Cap</option>
-            <option value="dailyChange">Daily Change</option>
-            <option value="rank1Week">Rank 1 Week</option>
-            <option value="rank1Month">Rank 1 Month</option>
-            <option value="rank1Year">Rank 1 Year</option>
-            <option value="name">Name</option>
-            <option value="ticker">Ticker</option>
-        </select>
-        <select id="order">
-            <option value="desc">Desc</option>
-            <option value="asc">Asc</option>
-        </select>
-        <select id="pageSize">
-            <option value="20">20</option>
-            <option value="50" selected>50</option>
-            <option value="100">100</option>
-        </select>
-        <button id="apply-filters" class="btn-primary">Apply</button>
-    </div>
 
-    <div id="dashboard-content" style="margin: 0 20px;">(Loading...)</div>
+    <!-- SECURITY / FOOTER -->
+    <section id="security" class="sa-section sa-footer-section">
+        <div class="sa-footer-grid">
+            <div>
+                <h2 class="sa-section-title">Security & privacy</h2>
+                <p class="sa-section-subtitle">
+                    Stock Analytics uses Google OAuth2, HTTPS everywhere and JWT-secured backend APIs.
+                    This demo is for educational purposes – your data stays in your own Google account.
+                </p>
+            </div>
+            <div class="sa-footer-meta">
+                <p class="sa-footer-tagline">
+                    Live demo • Built with Spring Boot, Spring Security, Spring Cloud Gateway &amp; React
+                </p>
+                <p class="sa-footer-small">Made for the Stock Analytics OAuth Gateway project.</p>
+            </div>
+        </div>
+    </section>
 
-    <div class="pagination">
-        <button id="prev-page" class="btn-secondary">Prev</button>
-        <span id="page-info">Page 1</span>
-        <button id="next-page" class="btn-secondary">Next</button>
-    </div>
-</div>
+</main>
 
+
+<script>
+    // Keep old routing behaviour for login
+    document.addEventListener("DOMContentLoaded", function () {
+        const loginBtn = document.getElementById("login-btn");
+        if (loginBtn) {
+            loginBtn.addEventListener("click", function () {
+                // Same path as your original working app.js
+                window.location.href = "/oauth-service/oauth2/authorization/google";
+            });
+        }
+    });
+
+    function scrollToLogin() {
+        const el = document.getElementById("login");
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }
+</script>
+
+<!-- Your existing JS that drives dashboard, tokens, etc. -->
 <script src="app.js" defer></script>
+
 </body>
 </html>

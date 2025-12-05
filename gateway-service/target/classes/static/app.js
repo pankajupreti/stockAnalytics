@@ -7,9 +7,21 @@ let currentPage = 0;
 });*/
 
 // --- Login ---
+/*
 document.getElementById("login-btn").addEventListener("click", () => {
   window.location.href = "/oauth-service/oauth2/authorization/google";
 });
+*/
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const loginBtn = document.getElementById("login-btn");
+        if (loginBtn) {
+            loginBtn.addEventListener("click", function () {
+                // same as your old working code
+                window.location.href = "/oauth-service/oauth2/authorization/google";
+            });
+        }
+    });
 
 // --- Logout ---
 document.getElementById("logout-btn").addEventListener("click", () => {
@@ -131,16 +143,43 @@ function renderDashboard(stocks) {
   }
 }
 
+  function showDashboardView() {
+      const landing = document.getElementById("landing-section");
+      const dash = document.getElementById("dashboard-section");
 
+      if (landing) landing.style.display = "none";
+      if (dash) dash.style.display = "block";
+
+      const anchor = document.getElementById("dashboard-section");
+      if (anchor) {
+          anchor.scrollIntoView({ behavior: "instant", block: "start" });
+      }
+  }
+
+    // login button still goes through the gateway route that works
+    document.addEventListener("DOMContentLoaded", function () {
+        const loginBtn = document.getElementById("login-btn");
+        if (loginBtn) {
+            loginBtn.addEventListener("click", function () {
+                window.location.href = "/oauth-service/oauth2/authorization/google";
+            });
+        }
+    });
+
+    function scrollToLogin() {
+        const el = document.getElementById("login");
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }
 // --- Show dashboard ---
 function showDashboard(token) {
-  document.getElementById("login-section").style.display = "none";
   document.getElementById("dashboard-section").style.display = "block";
-  //loadUserInfo(token);
-    // greet by name from JWT
-    const claims = parseJwt(token);
-    const name = claims.name || claims.email || claims.sub || "User";
-    document.getElementById("welcome-text").textContent = `Welcome, ${name}!`;
+
+  const claims = parseJwt(token);
+  const name = claims.name || claims.email || claims.sub || "User";
+  document.getElementById("welcome-text").textContent = `Welcome, ${name}!`;
+
   fetchDashboard(token);
 }
 
@@ -167,19 +206,32 @@ document.getElementById("next-page").addEventListener("click", () => {
 });
 
 // --- Init ---
+// --- Init ---
 (function init() {
   try {
+    const token = localStorage.getItem(tokenKey);
+    const isDashboard = window.location.pathname.includes("dashboard");
+
+    if (!token && isDashboard) {
+      // no token but user opened dashboard.html → redirect to landing
+      window.location.href = "index.html";
+      return;
+    }
+
     if (window.location.hash.startsWith("#access_token=")) {
       const token = window.location.hash.split("=")[1];
       localStorage.setItem(tokenKey, token);
       window.location.hash = "";
-      showDashboard(token);
+      window.location.href = "dashboard.html";
       return;
     }
 
-    const storedToken = localStorage.getItem(tokenKey);
-    if (storedToken) showDashboard(storedToken);
+    if (token && isDashboard) {
+      showDashboard(token);
+    }
   } catch (e) {
-    console.error("Token handling failed", e);
+    console.error("Init failed", e);
   }
 })();
+
+

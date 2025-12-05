@@ -82,7 +82,7 @@ public class SecurityConfig {
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/user-token").authenticated()
                         .requestMatchers("/token.html").permitAll()
-                      //  .requestMatchers("/", "/index.html", "/styles.css", "/app.js").permitAll()
+                        //  .requestMatchers("/", "/index.html", "/styles.css", "/app.js").permitAll()
                         .requestMatchers("/oauth2/authorization/**").permitAll() // ✅ entry for Google OAuth
                         .anyRequest().authenticated()
                 )
@@ -109,7 +109,7 @@ public class SecurityConfig {
             OAuth2User principal = authToken.getPrincipal();
 
             String email = principal.getAttribute("email");
-            String name  = principal.getAttribute("name");
+            String name = principal.getAttribute("name");
 
             JwtClaimsSet claims = JwtClaimsSet.builder()
                     .issuer(issuer)                       // <- configurable
@@ -129,7 +129,6 @@ public class SecurityConfig {
             response.sendRedirect(redirectUrl);
         };
     }
-
 
 
     // 4️⃣ Debug logging filter (optional)

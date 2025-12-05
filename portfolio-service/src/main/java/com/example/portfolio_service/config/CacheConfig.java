@@ -14,6 +14,6 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         // simple in-memory cache; "default" is just a cache name
-        return new ConcurrentMapCacheManager("default");
+        return new ConcurrentMapCacheManager("aiSummary");
     }
 }

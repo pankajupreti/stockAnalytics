@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Stock Analytics Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Old dashboard styles inline so they don't get messed up -->
+    <style>
+        body {
+          font-family: 'Segoe UI', Arial, sans-serif;
+          margin: 0;
+          background: #f9fafb;
+          color: #333;
+        }
+        /* Navbar */
+        .navbar {
+          background: #0f172a;
+          color: white;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 18px;
+        }
+        .navbar .brand {
+          font-weight: 700;
+          letter-spacing: 0.4px;
+        }
+        .navbar .links {
+          display: flex;
+          gap: 12px;
+        }
+        .navbar a {
+          color: #cbd5e1;
+          text-decoration: none;
+          padding: 8px 10px;
+          border-radius: 8px;
+        }
+        .navbar a.active,
+        .navbar a:hover {
+          color: white;
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        h2 {
+          color: #1f2937;
+          margin: 20px;
+        }
+
+        .dashboard-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin: 20px;
+        }
+
+        button {
+          padding: 6px 14px;
+          border-radius: 6px;
+          border: none;
+          cursor: pointer;
+          font-weight: 600;
+          transition: background 0.2s;
+        }
+        .btn-primary {
+          background: #2563eb;
+          color: white;
+        }
+        .btn-primary:hover {
+          background: #1d4ed8;
+        }
+        .btn-secondary {
+          background: #e5e7eb;
+          color: #111827;
+        }
+        .btn-secondary:hover {
+          background: #d1d5db;
+        }
+
+        .filters {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin: 15px 20px;
+          padding: 12px;
+          background: #fff;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .filters input,
+        .filters select {
+          padding: 6px 8px;
+          border: 1px solid #ccc;
+          border-radius: 6px;
+          font-size: 14px;
+        }
+
+        table {
+          width: calc(100% - 40px);
+          border-collapse: collapse;
+          margin: 0 20px;
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          table-layout: fixed;
+        }
+
+        th,
+        td {
+          padding: 10px;
+          font-size: 14px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          overflow: hidden;
+        }
+
+        th {
+          background: #f3f4f6;
+          font-weight: 600;
+          color: #374151;
+        }
+
+        th:nth-child(1),
+        td:nth-child(1) {
+          width: 6%;
+          text-align: center;
+        }
+        th:nth-child(2),
+        td:nth-child(2) {
+          width: 12%;
+          text-align: left;
+        }
+        th:nth-child(3),
+        td:nth-child(3) {
+          width: 30%;
+          text-align: left;
+        }
+        th:nth-child(4),
+        td:nth-child(4) {
+          width: 10%;
+          text-align: right;
+        }
+        th:nth-child(5),
+        td:nth-child(5) {
+          width: 10%;
+          text-align: right;
+        }
+        th:nth-child(6),
+        td:nth-child(6) {
+          width: 10%;
+          text-align: right;
+        }
+        th:nth-child(7),
+        td:nth-child(7) {
+          width: 10%;
+          text-align: right;
+        }
+        th:nth-child(8),
+        td:nth-child(8) {
+          width: 10%;
+          text-align: right;
+        }
+        th:nth-child(9),
+        td:nth-child(9) {
+          width: 12%;
+          text-align: right;
+        }
+
+        tr:nth-child(even) {
+          background: #fafafa;
+        }
+        tr:hover {
+          background: #f1f5f9;
+        }
+        td.positive {
+          color: green;
+          font-weight: 600;
+        }
+        td.negative {
+          color: red;
+          font-weight: 600;
+        }
+
+        .pagination {
+          margin: 15px 20px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+
+    <div class="links">
+        <a href="dashboard.html" class="active">Dashboard</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+    </div>
+</div>
+
+<h2>Stock Analytics Dashboard</h2>
+
+<div id="dashboard-section" style="display:none;">
+    <div class="dashboard-header">
+        <h3 id="welcome-text">Welcome!</h3>
+        <button id="logout-btn" class="btn-secondary">Logout</button>
+    </div>
+
+    <div class="filters">
+        <input type="text" id="search" placeholder="Search Ticker or Name">
+        <input type="number" id="minMarketCap" placeholder="Min Market Cap">
+        <input type="number" id="minDailyChange" step="0.01" placeholder="Min Daily Change">
+        <input type="number" id="minRank1Week" placeholder="Min Rank 1W">
+        <input type="number" id="minRank1Month" placeholder="Min Rank 1M">
+        <select id="sortBy">
+            <option value="cmp">CMP</option>
+            <option value="marketCap">Market Cap</option>
+            <option value="dailyChange">Daily Change</option>
+            <option value="rank1Week">Rank 1 Week</option>
+            <option value="rank1Month">Rank 1 Month</option>
+            <option value="rank1Year">Rank 1 Year</option>
+            <option value="name">Name</option>
+            <option value="ticker">Ticker</option>
+        </select>
+        <select id="order">
+            <option value="desc">Desc</option>
+            <option value="asc">Asc</option>
+        </select>
+        <select id="pageSize">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+        </select>
+        <button id="apply-filters" class="btn-primary">Apply</button>
+    </div>
+
+    <div id="dashboard-content" style="margin: 0 20px;">(Loading...)</div>
+
+    <div class="pagination">
+        <button id="prev-page" class="btn-secondary">Prev</button>
+        <span id="page-info">Page 1</span>
+        <button id="next-page" class="btn-secondary">Next</button>
+    </div>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const logoutBtn = document.getElementById("logout-btn");
+        const logoutBtnTop = document.getElementById("logout-btn-top"); // if you added header logout
+
+        function doLogout() {
+            localStorage.removeItem("access_token");   // remove token
+            window.location.href = "index.html";       // redirect to landing
+        }
+
+        if (logoutBtn) logoutBtn.addEventListener("click", doLogout);
+        if (logoutBtnTop) logoutBtnTop.addEventListener("click", doLogout);
+    });
+</script>
+<script src="app.js" defer></script>
+</body>
+</html>

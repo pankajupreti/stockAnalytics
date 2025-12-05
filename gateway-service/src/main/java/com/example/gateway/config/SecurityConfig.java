@@ -22,7 +22,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // allow static SPA files
-                        .pathMatchers("/", "/index.html", "/marketbreadth.html", "/portfolio.html","/style.css","/app.js","/portfolio.js", "/marketbreadth.js", "/js/**", "/images/**").permitAll()
+                        .pathMatchers("/", "/index.html", "/marketbreadth.html","/dashboard.html", "/portfolio.html","/style.css","/assets/images/logo-icon.png","/assets/images/google-logo.svg","/app.js","/portfolio.js", "/marketbreadth.js", "/js/**", "/images/**").permitAll()
 
                         // allow dashboard page but APIs will still be protected
                         .pathMatchers("/dashboard/**").permitAll()
