@@ -12,7 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-//@CrossOrigin(origins = {"http://localhost:8080","https://stockanalytics-ux71.onrender.com",}, allowCredentials = "true")
+//@CrossOrigin(origins = {"http://localhost:8080","https://stockanalytics-hv70.onrender.com",}, allowCredentials = "true")
 public class DashboardRestController {
 
     private final StockService stockService;
