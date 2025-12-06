@@ -39,7 +39,7 @@ services:
 
       # Redirect URL used by Google -> points to gateway
       - key: GOOGLE_REDIRECT_URI
-        value: https://stockanalytics-ux71.onrender.com/oauth-service/login/oauth2/code/google
+        value: https://stockanalytics-hv70.onrender.com/oauth-service/login/oauth2/code/google
 
       # JWKS URL that other services will call
       - key: AUTH_JWKS_URI
@@ -154,4 +154,4 @@ services:
       value: https://portfolio-service-oxon.onrender.com
 
     - key: CORS_ALLOWED_ORIGINS
-      value: "https://stockanalytics-ux71.onrender.com"
+      value: "https://stockanalytics-hv70.onrender.com"
