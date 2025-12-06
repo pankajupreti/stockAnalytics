@@ -1,5 +1,6 @@
 package com.example.demo.config;
 
+import com.example.demo.service.UserTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,9 +15,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -44,6 +48,8 @@ import java.util.stream.Collectors;
 public class SecurityConfig {
 
     private final JwtEncoder jwtEncoder;
+    private final OAuth2AuthorizedClientService authorizedClientService;
+    private final UserTokenService userTokenService;
 
     @Value("${oauth.issuer}")
     private String issuer;
@@ -51,8 +57,12 @@ public class SecurityConfig {
     @Value("${frontend.base-url}")
     private String frontendBaseUrl;
 
-    public SecurityConfig(JwtEncoder jwtEncoder) {
+    public SecurityConfig(JwtEncoder jwtEncoder,
+                          OAuth2AuthorizedClientService authorizedClientService,
+                          UserTokenService userTokenService) {
         this.jwtEncoder = jwtEncoder;
+        this.authorizedClientService = authorizedClientService;
+        this.userTokenService = userTokenService;
     }
 
     // 1️⃣ Authorization Server endpoints (token, jwks, introspection)
@@ -74,30 +84,27 @@ public class SecurityConfig {
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .formLogin(form -> form.disable())  // 🚫 disable default login page
+                .formLogin(form -> form.disable())
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // no JSESSIONID
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/user-token").authenticated()
                         .requestMatchers("/token.html").permitAll()
-                        //  .requestMatchers("/", "/index.html", "/styles.css", "/app.js").permitAll()
-                        .requestMatchers("/oauth2/authorization/**").permitAll() // ✅ entry for Google OAuth
+                        .requestMatchers("/oauth2/authorization/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .headers(headers -> headers.frameOptions().disable())
                 .oauth2Login(oauth -> oauth
-                        .successHandler(successHandler()) // redirect instead of raw JSON
+                        .successHandler(successHandler())   // our custom handler
                 );
 
         return http.build();
     }
 
-    // 3️⃣ Success Handler → redirect back to SPA
+    // 3️⃣ Success Handler → save tokens + redirect back to SPA with JWT
     @Bean
-
-
     public AuthenticationSuccessHandler successHandler() {
         return (request, response, authentication) -> {
             Instant now = Instant.now();
@@ -106,13 +113,21 @@ public class SecurityConfig {
                     .collect(Collectors.joining(" "));
 
             OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
-            OAuth2User principal = authToken.getPrincipal();
 
-            String email = principal.getAttribute("email");
-            String name = principal.getAttribute("name");
+            // Principal as OidcUser (same type your userTokenService already uses)
+            OidcUser user = (OidcUser) authToken.getPrincipal();
+
+            // Load the authorized client (contains access/refresh tokens from Google)
+            OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
+                    authToken.getAuthorizedClientRegistrationId(), // "google"
+                    authToken.getName()
+            );
+
+            String email = user.getAttribute("email");
+            String name  = user.getAttribute("name");
 
             JwtClaimsSet claims = JwtClaimsSet.builder()
-                    .issuer(issuer)                       // <- configurable
+                    .issuer(issuer)
                     .issuedAt(now)
                     .expiresAt(now.plus(4, ChronoUnit.HOURS))
                     .subject(authentication.getName())
@@ -121,23 +136,25 @@ public class SecurityConfig {
                     .claim("name", name)
                     .build();
 
-            String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
-            System.out.println("printing access token " + token);
+            // ⭐️ Persist / update user + tokens
+            userTokenService.saveOrUpdateToken(user, client);
 
-            // redirect to SPA with token, using configurable base URL
+            String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+            // Redirect to SPA with token
             String redirectUrl = frontendBaseUrl + "/index.html#access_token=" + token;
             response.sendRedirect(redirectUrl);
         };
     }
 
-
-    // 4️⃣ Debug logging filter (optional)
+    // 4️⃣ Debug logging filter (unchanged)
     @Bean
     public FilterRegistrationBean<OncePerRequestFilter> chainLogger() {
         FilterRegistrationBean<OncePerRequestFilter> bean = new FilterRegistrationBean<>();
         bean.setFilter(new OncePerRequestFilter() {
             @Override
-            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            protected void doFilterInternal(HttpServletRequest request,
+                                            HttpServletResponse response,
+                                            FilterChain filterChain)
                     throws ServletException, IOException {
                 System.out.println("➡️ Request " + request.getRequestURI());
                 filterChain.doFilter(request, response);
@@ -147,7 +164,7 @@ public class SecurityConfig {
         return bean;
     }
 
-    // 5️⃣ Register OAuth client (reporting-service)
+    // 5️⃣ Registered client for reporting-service (unchanged)
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
         RegisteredClient registeredClient = RegisteredClient.withId(UUID.randomUUID().toString())
@@ -175,5 +192,6 @@ public class SecurityConfig {
         return AuthorizationServerSettings.builder().build();
     }
 }
+
 
 
