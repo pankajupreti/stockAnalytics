@@ -108,7 +108,7 @@ services:
         value: gpt-4o-mini
 
   # ---------- SHEET IMPORT SERVICE ----------
-  - type: worker
+  - type: web
     name: sheet-import-service
     runtime: docker
     plan: free
