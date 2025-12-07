@@ -234,4 +234,28 @@ document.getElementById("next-page").addEventListener("click", () => {
   }
 })();
 
+window.addEventListener("load", () => {
+  const token = localStorage.getItem("access_token");
+  if (token) return; // already logged in, no need to warm
+
+  // Warm GATEWAY + OAUTH
+  fetch("/oauth-service/oauth2/authorization/google", {
+    method: "GET",
+    mode: "no-cors",
+  }).catch(() => {});
+
+  // Warm REPORTING-SERVICE via gateway
+  fetch("/reporting-service/actuator/health", {
+    method: "GET",
+    mode: "no-cors",
+  }).catch(() => {});
+
+  // Warm PORTFOLIO-SERVICE via gateway
+  fetch("/portfolio-service/actuator/health", {
+    method: "GET",
+    mode: "no-cors",
+  }).catch(() => {});
+});
+
+
 
