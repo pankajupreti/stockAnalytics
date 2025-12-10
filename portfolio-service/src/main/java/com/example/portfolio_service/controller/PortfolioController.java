@@ -11,6 +11,7 @@ import com.example.portfolio_service.model.Position;
 import com.example.portfolio_service.quotes.QuotesClient;
 import com.example.portfolio_service.security.CurrentUser;
 import com.example.portfolio_service.service.PortfolioService;
+import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -34,6 +35,7 @@ public class PortfolioController {
     private final QuotesClient quotesClient;
 
     // ----- Positions CRUD -----
+    @Retry(name = "backendRetry")
     @GetMapping("/positions")
     public List<Position> list(Authentication auth) {
         return service.list(current.sub(auth));

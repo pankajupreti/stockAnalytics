@@ -80,7 +80,7 @@ public class QuotesClient {
 
 
 
-    @Retry(name = "reportingClient")
+    @Retry(name = "backendRetry")
     @CircuitBreaker(name = "reportingClient", fallbackMethod = "fallbackBatchQuotes")
     public Mono<List<QuoteDTO>> batchQuotes(List<String> tickers, String bearerToken) {
         return webClient.get()
