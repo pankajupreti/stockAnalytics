@@ -23,6 +23,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // preflight
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api/portfolio/admin/**").permitAll() // admin endpoints for maintenance
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));

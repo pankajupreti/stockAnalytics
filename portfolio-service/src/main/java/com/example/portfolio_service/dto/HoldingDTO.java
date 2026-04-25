@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 public class HoldingDTO {
     private Long id;
     private String ticker;
+    private String name;
 
     private Integer quantity;
     private BigDecimal buyPrice;   // average buy
@@ -25,4 +26,10 @@ public class HoldingDTO {
     private BigDecimal weeklyChange;
     private BigDecimal monthlyChange;
     private BigDecimal marketCap;
+
+    // Sector data
+    private String sector;
+    private String industry;
+    private BigDecimal high52Week;
+    private BigDecimal low52Week;
 }

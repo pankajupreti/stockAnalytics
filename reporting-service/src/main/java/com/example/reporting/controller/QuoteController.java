@@ -35,6 +35,11 @@ public class QuoteController {
     // ----------------------------------------------------
     @GetMapping
     public List<QuoteDTO> quotes(@RequestParam List<String> tickers) {
+        return fetchQuotes(tickers);
+    }
+
+    // Shared logic for fetching quotes
+    private List<QuoteDTO> fetchQuotes(List<String> tickers) {
         if (tickers == null || tickers.isEmpty()) return List.of();
         // normalize incoming tickers to one case for matching
         var set = tickers.stream().filter(Objects::nonNull)
@@ -47,7 +52,11 @@ public class QuoteController {
                         s.getName(),
                         s.getCmp(),
                         s.getDailyChange(),
-                        s.getMarketCap()))
+                        s.getMarketCap(),
+                        s.getSector(),
+                        s.getIndustry(),
+                        s.getHigh52Week(),
+                        s.getLow52Week()))
                 .toList();
     }
 
@@ -135,7 +144,11 @@ public class QuoteController {
             String name,
             Double price,
             Double dailyChange,
-            Double marketCap
+            Double marketCap,
+            String sector,
+            String industry,
+            Double high52Week,
+            Double low52Week
     ) {}
 
     public record SymbolDTO(

@@ -55,6 +55,10 @@
                             <img src="assets/images/google-logo.svg" alt="" class="sa-google-icon" />
                             <span>Login with Google</span>
                         </button>
+                        <label class="sa-stay-logged-in">
+                            <input type="checkbox" id="stay-logged-in" />
+                            <span>Stay logged in for 30 days</span>
+                        </label>
                     </div>
                 </div>
 
@@ -233,7 +237,10 @@
         </div>
 
         <div class="filters">
-            <input type="text" id="search" placeholder="Search Ticker or Name">
+            <div class="search-autocomplete-container">
+                <input type="text" id="search" placeholder="Search Ticker or Name" autocomplete="off">
+                <div id="search-dropdown" class="search-dropdown"></div>
+            </div>
             <input type="number" id="minMarketCap" placeholder="Min Market Cap">
             <input type="number" id="minDailyChange" step="0.01" placeholder="Min Daily Change">
             <input type="number" id="minRank1Week" placeholder="Min Rank 1W">
@@ -297,6 +304,10 @@
         const loginBtn = document.getElementById("login-btn");
         if (loginBtn) {
             loginBtn.addEventListener("click", function () {
+                // Save "stay logged in" preference to localStorage before redirect
+                const stayLoggedIn = document.getElementById("stay-logged-in")?.checked || false;
+                localStorage.setItem("stay_logged_in_pending", stayLoggedIn ? "true" : "false");
+
                 // Same path as your original working app.js
                 window.location.href = "/oauth-service/oauth2/authorization/google";
             });
@@ -312,6 +323,7 @@
 </script>
 
 <!-- Your existing JS that drives dashboard, tokens, etc. -->
+<script src="token-utils.js"></script>
 <script src="app.js" defer></script>
 
 </body>

@@ -28,12 +28,12 @@ public class StockService {
             String search,
             String view,
             int page,
-            int pageSize // 👈 renamed for clarity
+            int pageSize
     ) {
         return repository.findAll().stream()
                 .filter(s -> s.getCmp() != null && s.getMarketCap() != null)
 
-                // ✅ View-based filters
+                // View-based filters
                 .filter(s -> {
                     return switch (view) {
                         case "52w" -> s.getCmp365() != null && s.getCmp() >= s.getCmp365();
@@ -43,7 +43,7 @@ public class StockService {
                     };
                 })
 
-                // ✅ Normal filters
+                // Normal filters
                 .filter(s -> minMarketCap == null || s.getMarketCap() >= minMarketCap)
                 .filter(s -> minDailyChange == null || (s.getDailyChange() != null && s.getDailyChange() >= minDailyChange))
                 .filter(s -> minRank1Week == null || (s.getRank1Week() != null && s.getRank1Week() >= minRank1Week))
@@ -83,6 +83,12 @@ public class StockService {
                     StockAnalytics::getRank1Year, Comparator.nullsLast(Double::compareTo));
             case "rank2Month" -> comparator = Comparator.comparing(
                     StockAnalytics::getRank2Month, Comparator.nullsLast(Double::compareTo));
+            case "rsRating" -> comparator = Comparator.comparing(
+                    StockAnalytics::getRsRating, Comparator.nullsLast(Double::compareTo));
+            case "pctFrom52WHigh" -> comparator = Comparator.comparing(
+                    this::calculatePctFrom52WHigh, Comparator.nullsLast(Double::compareTo));
+            case "pctFrom52WLow" -> comparator = Comparator.comparing(
+                    this::calculatePctFrom52WLow, Comparator.nullsLast(Double::compareTo));
             case "name" -> comparator = Comparator.comparing(
                     StockAnalytics::getName, Comparator.nullsLast(String::compareToIgnoreCase));
             case "ticker" -> comparator = Comparator.comparing(
@@ -93,12 +99,34 @@ public class StockService {
                     StockAnalytics::getDailyChange, Comparator.nullsLast(Double::compareTo));
         }
 
-        // ✅ Reverse order if "desc"
+        // Reverse order if "desc"
         if ("desc".equalsIgnoreCase(order)) {
             comparator = comparator.reversed();
         }
 
         return comparator;
+    }
+
+    /**
+     * Calculate percentage from 52-week high.
+     * Lower value means closer to 52W high (better for breakout).
+     */
+    private Double calculatePctFrom52WHigh(StockAnalytics s) {
+        if (s.getCmp() == null || s.getHigh52Week() == null || s.getHigh52Week() <= 0) {
+            return null;
+        }
+        return ((s.getHigh52Week() - s.getCmp()) / s.getHigh52Week()) * 100;
+    }
+
+    /**
+     * Calculate percentage from 52-week low.
+     * Lower value means closer to 52W low.
+     */
+    private Double calculatePctFrom52WLow(StockAnalytics s) {
+        if (s.getCmp() == null || s.getLow52Week() == null || s.getLow52Week() <= 0) {
+            return null;
+        }
+        return ((s.getCmp() - s.getLow52Week()) / s.getLow52Week()) * 100;
     }
 
 
@@ -135,5 +163,98 @@ public class StockService {
             case "rank1Year" -> s.getRank1Year();
             default -> null;
         };
+    }
+
+    /**
+     * Search stocks by ticker or company name for autocomplete.
+     * Uses the repository method that searches both ticker and name.
+     */
+    public List<StockAnalytics> searchStocks(String query) {
+        return repository.findTop100ByTickerContainingIgnoreCaseOrNameContainingIgnoreCase(query, query);
+    }
+
+    /**
+     * Get all stocks with valid 52W high/low data for breakouts page.
+     */
+    public List<StockAnalytics> getAllStocksWithValid52WData() {
+        return repository.findAll().stream()
+                .filter(s -> s.getCmp() != null && s.getHigh52Week() != null && s.getLow52Week() != null)
+                .filter(s -> s.getHigh52Week() > 0 && s.getLow52Week() > 0)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Enhanced dashboard filter with 52W high/low percentage filters.
+     * maxPctFrom52WHigh: only show stocks within X% of their 52W high
+     * maxPctFrom52WLow: only show stocks within X% of their 52W low
+     */
+    public List<StockAnalytics> getFilteredStocksWithPctFrom52W(
+            Double minMarketCap,
+            Double minDailyChange,
+            Double minRank1Week,
+            Double minRank1Month,
+            Double maxPctFrom52WHigh,
+            Double maxPctFrom52WLow,
+            String sortBy,
+            String order,
+            String search,
+            String view,
+            int page,
+            int pageSize
+    ) {
+        return repository.findAll().stream()
+                .filter(s -> s.getCmp() != null && s.getMarketCap() != null)
+
+                // View-based filters
+                .filter(s -> {
+                    return switch (view) {
+                        case "52w" -> s.getCmp365() != null && s.getCmp() >= s.getCmp365();
+                        case "recent" -> s.getCmp365() == null;
+                        case "daily" -> s.getDailyChange() != null && s.getDailyChange() >= 10.0;
+                        case "near52high" -> s.getHigh52Week() != null && s.getHigh52Week() > 0 &&
+                                ((s.getHigh52Week() - s.getCmp()) / s.getHigh52Week() * 100) <= 5;
+                        case "near52low" -> s.getLow52Week() != null && s.getLow52Week() > 0 &&
+                                ((s.getCmp() - s.getLow52Week()) / s.getLow52Week() * 100) <= 5;
+                        default -> true;
+                    };
+                })
+
+                // Normal filters
+                .filter(s -> minMarketCap == null || s.getMarketCap() >= minMarketCap)
+                .filter(s -> minDailyChange == null || (s.getDailyChange() != null && s.getDailyChange() >= minDailyChange))
+                .filter(s -> minRank1Week == null || (s.getRank1Week() != null && s.getRank1Week() >= minRank1Week))
+                .filter(s -> minRank1Month == null || (s.getRank1Month() != null && s.getRank1Month() >= minRank1Month))
+
+                // 52W percentage filters
+                // Only include stocks BELOW their 52W high (pctFromHigh >= 0) and within X%
+                .filter(s -> {
+                    if (maxPctFrom52WHigh == null) return true;
+                    if (s.getHigh52Week() == null || s.getHigh52Week() <= 0) return false;
+                    double pctFromHigh = ((s.getHigh52Week() - s.getCmp()) / s.getHigh52Week()) * 100;
+                    return pctFromHigh >= 0 && pctFromHigh <= maxPctFrom52WHigh;
+                })
+                // Only include stocks ABOVE their 52W low (pctFromLow >= 0) and within X%
+                .filter(s -> {
+                    if (maxPctFrom52WLow == null) return true;
+                    if (s.getLow52Week() == null || s.getLow52Week() <= 0) return false;
+                    double pctFromLow = ((s.getCmp() - s.getLow52Week()) / s.getLow52Week()) * 100;
+                    return pctFromLow >= 0 && pctFromLow <= maxPctFrom52WLow;
+                })
+
+                // Search
+                .filter(s -> {
+                    if (search == null || search.isBlank()) return true;
+                    String q = search.toLowerCase();
+                    return (s.getTicker() != null && s.getTicker().toLowerCase().contains(q)) ||
+                            (s.getName() != null && s.getName().toLowerCase().contains(q));
+                })
+
+                // Sorting
+                .sorted(getComparator(sortBy, order))
+
+                // Pagination
+                .skip((long) page * pageSize)
+                .limit(pageSize)
+                .collect(Collectors.toList());
     }
 }

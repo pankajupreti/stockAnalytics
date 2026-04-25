@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>52-Week Breakouts</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f6f9;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .stats {
+            margin-bottom: 15px;
+            color: #666;
+        }
+        .filters {
+            margin-bottom: 15px;
+        }
+        .filters button {
+            margin-right: 10px;
+            padding: 8px 16px;
+            border: 2px solid #2c3e50;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #2c3e50;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .filters button.active-filter {
+            background-color: #2c3e50;
+            color: white;
+        }
+        .filters button.high-btn.active-filter {
+            background-color: #27ae60;
+            border-color: #27ae60;
+        }
+        .filters button.low-btn.active-filter {
+            background-color: #e74c3c;
+            border-color: #e74c3c;
+        }
+        .filter-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            margin-top: 15px;
+        }
+        input[type="number"], input[type="text"], select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            padding: 8px 16px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #1a252f;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #2c3e50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .positive {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .negative {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .near-high {
+            background-color: #d5f4e6 !important;
+        }
+        .near-low {
+            background-color: #fadbd8 !important;
+        }
+        .at-high {
+            background-color: #27ae60 !important;
+            color: white;
+        }
+        .at-low {
+            background-color: #e74c3c !important;
+            color: white;
+        }
+        .pagination {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .pagination a {
+            margin: 0 5px;
+            padding: 8px 12px;
+            text-decoration: none;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background-color: #fff;
+            color: #333;
+        }
+        .pagination a.active {
+            background-color: #2c3e50;
+            color: white;
+        }
+        .back-link {
+            margin-bottom: 15px;
+        }
+        .back-link a {
+            color: #2c3e50;
+            text-decoration: none;
+        }
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<div class="back-link">
+    <a th:href="@{/dashboard}">&larr; Back to Dashboard</a>
+</div>
+
+<h1>52-Week Breakouts</h1>
+
+<div class="stats">
+    Found <strong th:text="${totalCount}">0</strong> stocks matching criteria
+</div>
+
+<div class="filters">
+    <form method="get" th:action="@{/52w-breakouts}" style="display:inline;">
+        <input type="hidden" name="filter" value="high">
+        <input type="hidden" name="threshold" th:value="${threshold}">
+        <button type="submit" class="high-btn" th:classappend="${filter == 'high'} ? 'active-filter'">Near 52W High</button>
+    </form>
+    <form method="get" th:action="@{/52w-breakouts}" style="display:inline;">
+        <input type="hidden" name="filter" value="low">
+        <input type="hidden" name="threshold" th:value="${threshold}">
+        <button type="submit" class="low-btn" th:classappend="${filter == 'low'} ? 'active-filter'">Near 52W Low</button>
+    </form>
+    <form method="get" th:action="@{/52w-breakouts}" style="display:inline;">
+        <input type="hidden" name="filter" value="all">
+        <input type="hidden" name="threshold" th:value="${threshold}">
+        <button type="submit" th:classappend="${filter == 'all'} ? 'active-filter'">All Stocks</button>
+    </form>
+</div>
+
+<form class="filter-form" th:action="@{/52w-breakouts}" method="get">
+    <input type="hidden" name="filter" th:value="${filter}">
+    Search: <input type="text" name="search" placeholder="Ticker or Name" th:value="${search}">
+    Within <input type="number" name="threshold" th:value="${threshold}" style="width:60px;" step="0.5" min="0" max="50">% of 52W
+    <span th:text="${filter == 'low'} ? 'Low' : 'High'">High</span>
+    <input type="submit" value="Apply">
+</form>
+
+<table>
+    <thead>
+    <tr>
+        <th>#</th>
+        <th>Ticker</th>
+        <th>Name</th>
+        <th>CMP</th>
+        <th>52W High</th>
+        <th>52W Low</th>
+        <th>% from High</th>
+        <th>% from Low</th>
+        <th>Daily %</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="dto, iterStat : ${stocks}"
+        th:classappend="${dto.pctFromHigh <= 1} ? 'at-high' : (${dto.pctFromHigh <= 5} ? 'near-high' : (${dto.pctFromLow <= 5} ? 'near-low' : ''))">
+        <td th:text="${(page != null ? page : 0) * 50 + iterStat.index + 1}"></td>
+        <td th:text="${dto.stock.ticker}"></td>
+        <td th:text="${dto.stock.name}"></td>
+        <td th:text="${#numbers.formatDecimal(dto.stock.cmp, 1, 2)}"></td>
+        <td th:text="${#numbers.formatDecimal(dto.stock.high52Week, 1, 2)}"></td>
+        <td th:text="${#numbers.formatDecimal(dto.stock.low52Week, 1, 2)}"></td>
+        <td th:classappend="${dto.pctFromHigh <= 5} ? 'positive' : ''">
+            <span th:text="${#numbers.formatDecimal(dto.pctFromHigh, 1, 2)}"></span>%
+        </td>
+        <td th:classappend="${dto.pctFromLow <= 10} ? 'negative' : ''">
+            +<span th:text="${#numbers.formatDecimal(dto.pctFromLow, 1, 2)}"></span>%
+        </td>
+        <td th:text="${dto.stock.dailyChange != null} ? ${#numbers.formatDecimal(dto.stock.dailyChange, 1, 2)} + '%' : '-'"
+            th:classappend="${dto.stock.dailyChange != null and dto.stock.dailyChange >= 0} ? 'positive' : 'negative'"></td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="pagination">
+    <a th:if="${page > 0}"
+       th:href="@{/52w-breakouts(filter=${filter}, threshold=${threshold}, page=${page - 1}, search=${search})}">Previous</a>
+    <a th:text="${page + 1}" class="active"></a>
+    <a th:if="${stocks.size() == 50}"
+       th:href="@{/52w-breakouts(filter=${filter}, threshold=${threshold}, page=${page + 1}, search=${search})}">Next</a>
+</div>
+
+<script>
+    // Auto-refresh every 5 minutes
+    setTimeout(() => {
+        const params = new URLSearchParams(window.location.search);
+        window.location.href = window.location.pathname + "?" + params.toString();
+    }, 300000);
+</script>
+</body>
+</html>

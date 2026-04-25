@@ -15,4 +15,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: "health,info"
+        include: "health,info,prometheus,metrics"
+  metrics:
+    tags:
+      application: discovery-service
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      type: b3

@@ -48,16 +48,14 @@ public class QuotesProxyController {
                             .header("X-Data-Quality", degraded ? "DEGRADED" : "LIVE")
                             .body(new BatchQuotesResponse(list, degraded, source));
                 })
-                // last-resort safety: if the pipeline errors, still return placeholders marked degraded
+                // last-resort safety: if the pipeline errors, return empty list (not fake prices!)
+                // The frontend will handle missing prices gracefully
                 .onErrorResume(ex -> {
-                    List<QuoteDTO> placeholders = tickers.stream()
-                            .map(t -> new QuoteDTO(t, new BigDecimal("100.00"), new BigDecimal("0.00"),new BigDecimal("0.00"),new BigDecimal("0.00"),new BigDecimal("0.00")))
-                            .toList();
-
+                    System.err.println("⚠️ Quotes fetch failed: " + ex.getMessage());
                     return Mono.just(
                             ResponseEntity.ok()
                                     .header("X-Data-Quality", "DEGRADED")
-                                    .body(new BatchQuotesResponse(placeholders, true, "PLACEHOLDER"))
+                                    .body(new BatchQuotesResponse(List.of(), true, "ERROR"))
                     );
                 });
     }

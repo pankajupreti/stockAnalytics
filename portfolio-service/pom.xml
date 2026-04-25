@@ -63,8 +63,16 @@
 			<artifactId>spring-boot-starter-cache</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>io.github.resilience4j</groupId>
 			<artifactId>resilience4j-spring-boot3</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-reactor</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -116,12 +124,32 @@
 		</dependency>
 
 		<!-- Circuit breaker (reactive) -->
+		<!--
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
 		</dependency>
-
+-->
 		<!-- Optional: metrics -->
+
+		<!-- Resilience4j Spring Boot 3 integration (enables @Retry, @CircuitBreaker, etc.) -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot3</artifactId>
+		</dependency>
+
+		<!-- Reactor support so Retry/CircuitBreaker work with Mono/Flux -->
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-reactor</artifactId>
+		</dependency>
+
+		<!-- AOP is required so annotations like @Retry are actually applied -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-prometheus</artifactId>

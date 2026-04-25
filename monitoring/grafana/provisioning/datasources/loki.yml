@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    uid: loki
+    isDefault: true
+    editable: true
+    jsonData:
+      derivedFields:
+        - datasourceUid: loki
+          matcherRegex: '\[([a-f0-9]{16,32}),'
+          name: TraceID
+          url: '/explore?left=["now-1h","now","loki",{"expr":"{traceId=\"${__value.raw}\"}"}]'

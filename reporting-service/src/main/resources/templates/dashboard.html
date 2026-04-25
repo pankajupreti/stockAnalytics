@@ -112,16 +112,19 @@
     </form>
     <form method="get" th:action="@{/dashboard}">
         <input type="hidden" name="view" value="52w">
-        <button type="submit" th:classappend="${view} == '52w' ? 'active-filter'">📈 52-Week Highs</button>
+        <button type="submit" th:classappend="${view} == '52w' ? 'active-filter'">52-Week Highs</button>
     </form>
     <form method="get" th:action="@{/dashboard}">
         <input type="hidden" name="view" value="recent">
-        <button type="submit" th:classappend="${view} == 'recent' ? 'active-filter'">🆕 Recent IPOs</button>
+        <button type="submit" th:classappend="${view} == 'recent' ? 'active-filter'">Recent IPOs</button>
     </form>
     <form method="get" th:action="@{/dashboard}">
         <input type="hidden" name="view" value="daily">
-        <button type="submit" th:classappend="${view} == 'daily' ? 'active-filter'">📊 Top Daily Movers</button>
+        <button type="submit" th:classappend="${view} == 'daily' ? 'active-filter'">Top Daily Movers</button>
     </form>
+    <a th:href="@{/52w-breakouts}" style="margin-left: 20px;">
+        <button type="button" style="background-color: #27ae60; color: white; border-color: #27ae60;">52W Breakouts</button>
+    </a>
 </div>
 
 <form th:action="@{/dashboard}" method="get">

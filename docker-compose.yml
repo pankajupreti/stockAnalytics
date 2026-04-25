@@ -1,0 +1,197 @@
+services:
+  # ============== Database ==============
+  postgres:
+    image: postgres:15-alpine
+    container_name: oauthproj-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============== Discovery Service (Eureka) ==============
+  discovery-service:
+    build:
+      context: ./discovery-service
+      dockerfile: Dockerfile.txt
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    environment:
+      PORT: 8761
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # ============== OAuth Service ==============
+  oauth:
+    build:
+      context: ./oauth
+      dockerfile: Dockerfile
+    container_name: oauth-service
+    ports:
+      - "8081:8080"
+    environment:
+      PORT: 8080
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tokendb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+
+  # ============== Gateway Service ==============
+  gateway-service:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    container_name: gateway-service
+    ports:
+      - "9082:8082"
+    environment:
+      PORT: 8082
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      oauth:
+        condition: service_started
+
+  # ============== Reporting Service ==============
+  reporting-service:
+    build:
+      context: ./reporting-service
+      dockerfile: Dockerfile
+    container_name: reporting-service
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tokendb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+
+  # ============== Portfolio Service ==============
+  portfolio-service:
+    build:
+      context: ./portfolio-service
+      dockerfile: Dockerfile
+    container_name: portfolio-service
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/portfolio_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+
+  # ============== Announcement Service ==============
+  announcement-service:
+    build:
+      context: ./announcement-service
+      dockerfile: Dockerfile
+    container_name: announcement-service
+    ports:
+      - "8085:8085"
+    environment:
+      PORT: 8085
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/announcement_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+
+  # ============== Sheet Import Service ==============
+  sheet-import-service:
+    build:
+      context: ./sheet-import-service
+      dockerfile: Dockerfile
+    container_name: sheet-import-service
+    ports:
+      - "8086:8086"
+    environment:
+      PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tokendb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+
+  # ============== Alert Service ==============
+  alert-service:
+    build:
+      context: ./alert-service
+      dockerfile: Dockerfile
+    container_name: alert-service
+    ports:
+      - "8087:8087"
+    environment:
+      PORT: 8087
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/alert_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+    depends_on:
+      postgres:
+        condition: service_healthy
+      discovery-service:
+        condition: service_healthy
+
+  # ============== Results Service ==============
+  # Results functionality has been consolidated into announcement-service
+  # The parsed_results table is now managed by announcement-service
+  # results-service:
+  #   build:
+  #     context: ./results-service
+  #     dockerfile: Dockerfile
+  #   container_name: results-service
+  #   ports:
+  #     - "8088:8088"
+  #   environment:
+  #     PORT: 8088
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/results_db
+  #     SPRING_DATASOURCE_USERNAME: postgres
+  #     SPRING_DATASOURCE_PASSWORD: postgres
+  #     EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     discovery-service:
+  #       condition: service_healthy
+
+volumes:
+  postgres_data:

@@ -1,0 +1,138 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "count_over_time({job=\"stockanalytics\", level=\"ERROR\"} [5m])",
+          "refId": "A"
+        }
+      ],
+      "title": "Error Rate (5m windows)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 4 },
+      "id": 2,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"stockanalytics\", level=\"ERROR\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Errors (All Services)",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 4 },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"stockanalytics\", level=\"WARN\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Warnings (All Services)",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 10 },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"stockanalytics\", service=~\"$service\"} |~ \"$search\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Service Logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "description": "Filter by service",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "name": "service",
+        "query": "label_values({job=\"stockanalytics\"}, service)",
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": true, "text": "", "value": "" },
+        "description": "Search log content",
+        "name": "search",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Stock Analytics - Service Logs",
+  "uid": "stock-analytics-logs"
+}

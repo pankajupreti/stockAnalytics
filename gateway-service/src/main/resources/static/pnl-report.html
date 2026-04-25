@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>P&L Report</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
+    <style>
+        :root { --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --soft:#eef2ff; --border:#e5e7eb; --primary:#2563eb; }
+        body{ margin:0; font-family:Segoe UI, Arial, sans-serif; background:#f9fafb; color:#111827; }
+        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; position:sticky; top:0; z-index:100; }
+        .brand{ font-weight:700; letter-spacing:.3px; }
+        .links a{ color:#cbd5e1; text-decoration:none; padding:8px 10px; border-radius:8px; margin-left:8px; }
+        .links a.active, .links a:hover{ color:#fff; background:rgba(255,255,255,.1); }
+        .wrap{ padding:20px; max-width:1400px; margin:0 auto; }
+
+        h2 { margin:6px 0 14px; }
+        h3 { margin:0 0 12px; color:#374151; font-size:16px; }
+
+        .section { margin-bottom:24px; }
+
+        .stats-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:20px; }
+        .stat-card{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+        .stat-card .k{ font-size:12px; color:var(--muted); margin-bottom:4px; }
+        .stat-card .v{ font-size:17px; font-weight:700; }
+        @media (max-width:768px) { .stats-grid{ grid-template-columns: repeat(2, 1fr); } }
+
+        .filters { display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+        .filters input, .filters select { padding:8px; border:1px solid var(--border); border-radius:8px; }
+
+        .panel { background:#fff; border:1px solid var(--border); border-radius:10px; padding:16px; }
+
+        table{ width:100%; border-collapse:collapse; font-size:13px; }
+        th,td{ padding:10px 12px; border-bottom:1px solid #f3f4f6; text-align:left; }
+        th{ background:#f9fafb; font-weight:600; color:#374151; }
+        tr:hover td{ background:#fafbfc; }
+        td.num{ text-align:right; font-family:monospace; }
+
+        .expand-btn{ background:none; border:1px solid var(--border); border-radius:4px; width:22px; height:22px; cursor:pointer; font-size:14px; line-height:20px; text-align:center; padding:0; color:var(--muted); }
+        .expand-btn:hover{ background:var(--soft); color:var(--primary); }
+        .child-row td{ background:#f8fafc; font-size:12px; color:#64748b; border-bottom:1px solid #f1f5f9; }
+        .child-row td:first-child{ padding-left:36px; }
+        .group-row{ font-weight:600; }
+        .group-row td{ border-bottom:2px solid #e5e7eb; }
+
+        .pos{ color:#059669; }
+        .neg{ color:#dc2626; }
+
+        .btn{ padding:8px 12px; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+        .btn-outline{ background:#fff; border:1px solid var(--border); }
+        .btn-primary{ background:var(--primary); color:white; }
+
+        .loading { text-align:center; padding:40px; color:var(--muted); }
+
+        .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
+        .tag-profit { background:#d1fae5; color:#065f46; }
+        .tag-loss { background:#fee2e2; color:#991b1b; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html" class="active">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html">Health</a>
+    </div>
+</div>
+
+<div class="wrap">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <h2 style="margin:0;">P&L Report - Realized Gains/Losses</h2>
+        <div>
+            <button class="btn btn-outline" onclick="location.href='portfolio.html'">Back to Portfolio</button>
+            <button class="btn btn-primary" onclick="loadReport()">Refresh</button>
+        </div>
+    </div>
+
+    <!-- Date Filters -->
+    <div class="filters">
+        <label>From:</label>
+        <input type="date" id="date-from" />
+        <label>To:</label>
+        <input type="date" id="date-to" />
+        <select id="preset-range">
+            <option value="">Custom Range</option>
+            <option value="ytd">Year to Date</option>
+            <option value="fy">Financial Year (Apr-Mar)</option>
+            <option value="1m">Last 1 Month</option>
+            <option value="3m">Last 3 Months</option>
+            <option value="6m">Last 6 Months</option>
+            <option value="1y">Last 1 Year</option>
+            <option value="all" selected>All Time</option>
+        </select>
+        <button class="btn btn-primary" onclick="loadReport()">Apply</button>
+    </div>
+
+    <div id="loading" class="loading">Loading P&L report...</div>
+
+    <div id="content" style="display:none;">
+
+        <!-- Trade Statistics -->
+        <div class="section">
+            <div class="stats-grid">
+                <div class="stat-card"><div class="k">Total Trades</div><div class="v" id="stat-total-trades">-</div></div>
+                <div class="stat-card"><div class="k">Losses</div><div class="v neg" id="stat-losing">-</div></div>
+                <div class="stat-card"><div class="k">Avg P&L / Trade</div><div class="v" id="stat-total-avg">-</div></div>
+
+                <div class="stat-card"><div class="k">Wins</div><div class="v pos" id="stat-winning">-</div></div>
+                <div class="stat-card"><div class="k">Avg Gain %</div><div class="v pos" id="stat-avg-gain-pct">-</div></div>
+                <div class="stat-card"><div class="k">Total Realized P&L</div><div class="v" id="stat-total-pnl">-</div></div>
+
+                <div class="stat-card"><div class="k">Win %</div><div class="v" id="stat-win-rate">-</div></div>
+                <div class="stat-card"><div class="k">Avg Loss %</div><div class="v neg" id="stat-avg-loss-pct">-</div></div>
+                <div class="stat-card"><div class="k">Total Profit</div><div class="v pos" id="stat-total-profit">-</div></div>
+
+                <div class="stat-card"><div class="k">Largest Win %</div><div class="v pos" id="stat-largest-win">-</div></div>
+                <div class="stat-card"><div class="k">Profit Factor</div><div class="v" id="stat-profit-factor">-</div></div>
+                <div class="stat-card"><div class="k">Total Loss</div><div class="v neg" id="stat-total-loss">-</div></div>
+
+                <div class="stat-card"><div class="k">Largest Loss %</div><div class="v neg" id="stat-largest-loss">-</div></div>
+                <div class="stat-card"><div class="k">Max Gain (single trade)</div><div class="v pos" id="stat-max-gain">-</div></div>
+                <div class="stat-card"><div class="k">Avg Gain / Trade</div><div class="v pos" id="stat-avg-gain">-</div></div>
+
+                <div class="stat-card"><div class="k">Avg Holding Days</div><div class="v" id="stat-holding-days">-</div></div>
+                <div class="stat-card"><div class="k">Max Loss (single trade)</div><div class="v neg" id="stat-max-loss">-</div></div>
+                <div class="stat-card"><div class="k">Avg Loss / Trade</div><div class="v neg" id="stat-avg-loss">-</div></div>
+
+                <div class="stat-card"><div class="k">PnL Ratio</div><div class="v" id="stat-pnl-ratio">-</div></div>
+                <div class="stat-card"><div class="k">Avg Capital / Win Trade</div><div class="v" id="stat-avg-cap">-</div></div>
+                <div class="stat-card"><div class="k">&nbsp;</div><div class="v">&nbsp;</div></div>
+            </div>
+        </div>
+
+        <!-- Transaction Table -->
+        <div class="section">
+            <div class="panel">
+                <h3>Sell Transactions</h3>
+                <div style="max-height:500px;overflow-y:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:30px;"></th>
+                                <th>Ticker</th>
+                                <th>Date(s)</th>
+                                <th class="num">Qty</th>
+                                <th class="num">Buy Price</th>
+                                <th class="num">Avg Sell Price</th>
+                                <th class="num">Total Value</th>
+                                <th class="num">Realized P&L</th>
+                                <th class="num">P&L %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="token-utils.js"></script>
+<script>
+const API_BASE = '/portfolio-service';
+
+// Get token (will be refreshed by token-utils if needed)
+function getToken() {
+    return localStorage.getItem('access_token');
+}
+
+// Check auth on load
+if (!getToken()) {
+    window.location.href = 'index.html';
+}
+
+async function api(path) {
+    // Use fetchWithAuth for automatic token refresh on 401
+    const res = await fetchWithAuth(API_BASE + path);
+    if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+    }
+    return res.json();
+}
+
+function fmt(n, decimals = 0) {
+    if (n == null) return '-';
+    return new Intl.NumberFormat('en-IN', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    }).format(n);
+}
+
+function fmtPnl(n) {
+    if (n == null) return '-';
+    const cls = n >= 0 ? 'pos' : 'neg';
+    const sign = n >= 0 ? '+' : '';
+    return `<span class="${cls}">${sign}₹${fmt(Math.abs(n), 0)}</span>`;
+}
+
+function fmtPct(n) {
+    if (n == null) return '-';
+    const cls = n >= 0 ? 'pos' : 'neg';
+    const sign = n >= 0 ? '+' : '';
+    return `<span class="${cls}">${sign}${fmt(n, 2)}%</span>`;
+}
+
+function setPresetRange() {
+    const preset = document.getElementById('preset-range').value;
+    const today = new Date();
+    let from = null;
+    let to = new Date();
+
+    switch (preset) {
+        case 'ytd':
+            from = new Date(today.getFullYear(), 0, 1);
+            break;
+        case 'fy':
+            // Indian FY: April to March
+            if (today.getMonth() >= 3) { // April onwards
+                from = new Date(today.getFullYear(), 3, 1);
+            } else {
+                from = new Date(today.getFullYear() - 1, 3, 1);
+            }
+            break;
+        case '1m':
+            from = new Date(today);
+            from.setMonth(from.getMonth() - 1);
+            break;
+        case '3m':
+            from = new Date(today);
+            from.setMonth(from.getMonth() - 3);
+            break;
+        case '6m':
+            from = new Date(today);
+            from.setMonth(from.getMonth() - 6);
+            break;
+        case '1y':
+            from = new Date(today);
+            from.setFullYear(from.getFullYear() - 1);
+            break;
+        case 'all':
+            from = null;
+            to = null;
+            break;
+        default:
+            return; // Custom - don't change
+    }
+
+    if (from) {
+        document.getElementById('date-from').value = from.toISOString().split('T')[0];
+    } else {
+        document.getElementById('date-from').value = '';
+    }
+    if (to) {
+        document.getElementById('date-to').value = to.toISOString().split('T')[0];
+    } else {
+        document.getElementById('date-to').value = '';
+    }
+}
+
+document.getElementById('preset-range').addEventListener('change', () => {
+    setPresetRange();
+    loadReport();
+});
+
+async function loadReport() {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('content').style.display = 'none';
+
+    try {
+        const from = document.getElementById('date-from').value;
+        const to = document.getElementById('date-to').value;
+
+        let summaryUrl = '/api/portfolio/transactions/pnl-summary';
+        let txUrl = '/api/portfolio/transactions/sells';
+
+        if (from && to) {
+            summaryUrl += `?from=${from}&to=${to}`;
+            txUrl += `/range?from=${from}&to=${to}`;
+        }
+
+        const [summary, transactions] = await Promise.all([
+            api(summaryUrl),
+            api(txUrl)
+        ]);
+
+        renderSummary(summary);
+        renderTransactions(transactions);
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+    } catch (e) {
+        console.error('Error loading report:', e);
+        document.getElementById('loading').innerHTML = 'Error loading report. <a href="#" onclick="loadReport()">Retry</a>';
+    }
+}
+
+function renderSummary(summary) {
+    // Original stats
+    document.getElementById('stat-total-pnl').innerHTML = fmtPnl(summary.totalRealizedPnl);
+    document.getElementById('stat-total-trades').textContent = summary.totalTrades || 0;
+    document.getElementById('stat-winning').textContent = summary.winningTrades || 0;
+    document.getElementById('stat-losing').textContent = summary.losingTrades || 0;
+    document.getElementById('stat-win-rate').textContent = fmt(summary.winRate, 1) + '%';
+    document.getElementById('stat-total-profit').innerHTML = fmtPnl(summary.totalProfit);
+    document.getElementById('stat-total-loss').innerHTML = fmtPnl(summary.totalLoss);
+
+    // Extended stats
+    document.getElementById('stat-avg-gain-pct').innerHTML =
+        summary.avgGainPct != null ? fmtPct(summary.avgGainPct) : '-';
+    document.getElementById('stat-avg-loss-pct').innerHTML =
+        summary.avgLossPct != null ? fmtPct(summary.avgLossPct) : '-';
+    document.getElementById('stat-largest-win').innerHTML =
+        summary.largestWinPct != null ? fmtPct(summary.largestWinPct) : '-';
+    document.getElementById('stat-largest-loss').innerHTML =
+        summary.largestLossPct != null ? fmtPct(summary.largestLossPct) : '-';
+    document.getElementById('stat-profit-factor').textContent =
+        summary.profitFactor != null ? fmt(summary.profitFactor, 2) : '-';
+    document.getElementById('stat-pnl-ratio').textContent =
+        summary.pnlRatio != null ? fmt(summary.pnlRatio, 2) : '-';
+    document.getElementById('stat-max-gain').innerHTML = fmtPnl(summary.maxPositiveGain);
+    document.getElementById('stat-max-loss').innerHTML = fmtPnl(summary.maxNegative);
+    document.getElementById('stat-avg-gain').innerHTML = fmtPnl(summary.avgGainPerTrade);
+    document.getElementById('stat-avg-loss').innerHTML = fmtPnl(summary.avgLossPerTrade);
+    document.getElementById('stat-total-avg').innerHTML = fmtPnl(summary.totalAvg);
+    document.getElementById('stat-avg-cap').textContent =
+        summary.avgCapPerGains ? '\u20B9' + fmt(summary.avgCapPerGains, 0) : '-';
+    document.getElementById('stat-holding-days').textContent =
+        summary.avgHoldingDays != null ? fmt(summary.avgHoldingDays, 1) + ' days' : 'N/A';
+}
+
+function renderTransactions(transactions) {
+    const tbody = document.getElementById('transactions-table');
+
+    if (!transactions || transactions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);">No sell transactions found</td></tr>';
+        return;
+    }
+
+    const groups = groupByTickerAndBuyPrice(transactions);
+
+    let html = '';
+    let gIdx = 0;
+    for (const group of groups) {
+        const gId = 'g' + gIdx++;
+        const pnl = group.realizedPnl;
+        const buyPrice = group.avgBuyPriceAtSell;
+        const pnlPct = buyPrice > 0 ? ((group.avgSellPrice - buyPrice) / buyPrice * 100) : 0;
+        const hasChildren = group.children.length > 1;
+        const dateLabel = group.children.length === 1
+            ? group.children[0].transactionDate
+            : group.children.length + ' sells';
+
+        // Parent / group row
+        html += `<tr class="${hasChildren ? 'group-row' : ''}">`;
+        html += `<td>${hasChildren
+            ? '<button class="expand-btn" onclick="toggleGroup(\'' + gId + '\', this)">+</button>'
+            : ''}</td>`;
+        html += `<td><strong>${group.ticker}</strong></td>`;
+        html += `<td>${dateLabel}</td>`;
+        html += `<td class="num">${group.quantity}</td>`;
+        html += `<td class="num">\u20B9${fmt(buyPrice, 2)}</td>`;
+        html += `<td class="num">\u20B9${fmt(group.avgSellPrice, 2)}</td>`;
+        html += `<td class="num">\u20B9${fmt(group.totalValue, 0)}</td>`;
+        html += `<td class="num">${fmtPnl(pnl)}</td>`;
+        html += `<td class="num">${fmtPct(pnlPct)}</td>`;
+        html += `</tr>`;
+
+        // Child rows (hidden by default)
+        if (hasChildren) {
+            for (const child of group.children) {
+                const cPnl = child.realizedPnl || 0;
+                const cBuy = child.avgBuyPriceAtSell || 0;
+                const cSell = child.price || 0;
+                const cPct = cBuy > 0 ? ((cSell - cBuy) / cBuy * 100) : 0;
+                html += `<tr class="child-row ${gId}" style="display:none;">`;
+                html += `<td></td>`;
+                html += `<td>${child.ticker}</td>`;
+                html += `<td>${child.transactionDate}</td>`;
+                html += `<td class="num">${child.quantity}</td>`;
+                html += `<td class="num">\u20B9${fmt(cBuy, 2)}</td>`;
+                html += `<td class="num">\u20B9${fmt(cSell, 2)}</td>`;
+                html += `<td class="num">\u20B9${fmt(child.totalValue || (child.quantity * cSell), 0)}</td>`;
+                html += `<td class="num">${fmtPnl(cPnl)}</td>`;
+                html += `<td class="num">${fmtPct(cPct)}</td>`;
+                html += `</tr>`;
+            }
+        }
+    }
+    tbody.innerHTML = html;
+}
+
+function toggleGroup(gId, btn) {
+    const rows = document.querySelectorAll('.' + gId);
+    const showing = rows[0] && rows[0].style.display !== 'none';
+    rows.forEach(r => r.style.display = showing ? 'none' : '');
+    btn.textContent = showing ? '+' : '\u2212';
+}
+
+function groupByTickerAndBuyPrice(transactions) {
+    // Step 1: merge same-day sells for the same ticker (partial fills)
+    const dayMerged = {};
+    for (const tx of transactions) {
+        const key = `${tx.ticker}_${tx.transactionDate}`;
+        if (!dayMerged[key]) {
+            dayMerged[key] = {
+                ticker: tx.ticker,
+                transactionDate: tx.transactionDate,
+                quantity: 0,
+                totalValue: 0,
+                realizedPnl: 0,
+                totalBuyCost: 0
+            };
+        }
+        const g = dayMerged[key];
+        const qty = tx.quantity || 0;
+        const buyPrice = tx.avgBuyPriceAtSell || 0;
+        const sellPrice = tx.price || 0;
+        g.quantity += qty;
+        g.totalValue += tx.totalValue || (qty * sellPrice);
+        g.realizedPnl += tx.realizedPnl || 0;
+        g.totalBuyCost += qty * buyPrice;
+    }
+    const mergedTxs = Object.values(dayMerged).map(g => ({
+        ticker: g.ticker,
+        transactionDate: g.transactionDate,
+        quantity: g.quantity,
+        avgBuyPriceAtSell: g.quantity > 0 ? g.totalBuyCost / g.quantity : 0,
+        price: g.quantity > 0 ? g.totalValue / g.quantity : 0,
+        totalValue: g.totalValue,
+        realizedPnl: g.realizedPnl
+    }));
+
+    // Step 2: group by ticker + rounded buy price
+    const groups = {};
+    for (const tx of mergedTxs) {
+        const roundedBuy = Math.round((tx.avgBuyPriceAtSell || 0) * 100) / 100;
+        const key = `${tx.ticker}_${roundedBuy}`;
+        if (!groups[key]) {
+            groups[key] = {
+                ticker: tx.ticker,
+                quantity: 0,
+                totalValue: 0,
+                realizedPnl: 0,
+                totalBuyCost: 0,
+                children: []
+            };
+        }
+        const g = groups[key];
+        g.quantity += tx.quantity;
+        g.totalValue += tx.totalValue;
+        g.realizedPnl += tx.realizedPnl;
+        g.totalBuyCost += tx.quantity * (tx.avgBuyPriceAtSell || 0);
+        g.children.push(tx);
+    }
+
+    // Step 3: compute aggregates and sort
+    return Object.values(groups).map(g => {
+        g.avgBuyPriceAtSell = g.quantity > 0 ? g.totalBuyCost / g.quantity : 0;
+        g.avgSellPrice = g.quantity > 0 ? g.totalValue / g.quantity : 0;
+        // Sort children by date descending
+        g.children.sort((a, b) => a.transactionDate > b.transactionDate ? -1 : 1);
+        return g;
+    }).sort((a, b) => {
+        // Sort groups by most recent child date descending
+        const aDate = a.children[0]?.transactionDate || '';
+        const bDate = b.children[0]?.transactionDate || '';
+        if (aDate > bDate) return -1;
+        if (aDate < bDate) return 1;
+        return a.ticker.localeCompare(b.ticker);
+    });
+}
+
+// Initialize with "All Time" preset
+setPresetRange();
+loadReport();
+</script>
+</body>
+</html>

@@ -90,9 +90,13 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/h2-console/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/user-token").authenticated()
+                        .requestMatchers("/user/stay-logged-in").authenticated()
                         .requestMatchers("/token.html").permitAll()
                         .requestMatchers("/oauth2/authorization/**").permitAll()
+                        .requestMatchers("/token/refresh").permitAll()
+                        .requestMatchers("/token/revoke").permitAll()
                         .anyRequest().authenticated()
                 )
                 .headers(headers -> headers.frameOptions().disable())
@@ -103,10 +107,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 3️⃣ Success Handler → save tokens + redirect back to SPA with JWT
+    // 3️⃣ Success Handler → save tokens + redirect back to SPA with JWT + refresh token
     @Bean
     public AuthenticationSuccessHandler successHandler() {
         return (request, response, authentication) -> {
+            System.out.println("=== OAUTH LOGIN SUCCESS HANDLER ===");
             Instant now = Instant.now();
             String scope = authentication.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
@@ -125,12 +130,17 @@ public class SecurityConfig {
 
             String email = user.getAttribute("email");
             String name  = user.getAttribute("name");
+            String sub = user.getSubject();
+
+            System.out.println("📧 User: " + email + " (sub: " + sub + ")");
+            System.out.println("🔑 Google Access Token: " + (client.getAccessToken() != null ? "present" : "missing"));
+            System.out.println("🔄 Google Refresh Token from client: " + (client.getRefreshToken() != null ? "present (" + client.getRefreshToken().getTokenValue().substring(0, 20) + "...)" : "⚠️ MISSING!"));
 
             JwtClaimsSet claims = JwtClaimsSet.builder()
                     .issuer(issuer)
                     .issuedAt(now)
-                    .expiresAt(now.plus(4, ChronoUnit.HOURS))
-                    .subject(authentication.getName())
+                    .expiresAt(now.plus(1, ChronoUnit.HOURS))  // 1 hour access token
+                    .subject(sub)
                     .claim("scope", scope)
                     .claim("email", email)
                     .claim("name", name)
@@ -139,10 +149,24 @@ public class SecurityConfig {
             // ⭐️ Persist / update user + tokens
             userTokenService.saveOrUpdateToken(user, client);
 
-            String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
-            // Redirect to SPA with token
-            String redirectUrl = frontendBaseUrl + "/index.html#access_token=" + token;
-            response.sendRedirect(redirectUrl);
+            String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+
+            // Get the stored refresh token (Google's refresh token)
+            String refreshToken = userTokenService.getRefreshTokenBySub(sub);
+            System.out.println("💾 Stored Refresh Token: " + (refreshToken != null ? "present (" + refreshToken.substring(0, 20) + "...)" : "⚠️ NOT FOUND IN DB!"));
+
+            // Redirect to SPA with both tokens
+            StringBuilder redirectUrl = new StringBuilder(frontendBaseUrl)
+                    .append("/index.html#access_token=").append(accessToken);
+
+            if (refreshToken != null) {
+                redirectUrl.append("&refresh_token=").append(refreshToken);
+                System.out.println("✅ Redirecting with refresh_token");
+            } else {
+                System.out.println("⚠️ Redirecting WITHOUT refresh_token - user will need to re-login!");
+            }
+
+            response.sendRedirect(redirectUrl.toString());
         };
     }
 

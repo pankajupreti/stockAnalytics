@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="reporting-service"/>
+    <property name="LOG_DIR" value="${LOG_DIR:-../logs}"/>
+
+    <!-- Console: standard Spring Boot format -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5level [%X{traceId:-},%X{spanId:-}] [%15.15thread] %-40.40logger{39} : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File: same format, with rotation -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5level [%X{traceId:-},%X{spanId:-}] [%15.15thread] %-40.40logger{39} : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Async wrapper (non-blocking writes) -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <!-- Reduce noise -->
+    <logger name="org.springframework.cloud" level="WARN"/>
+    <logger name="com.netflix" level="WARN"/>
+    <logger name="org.springframework.boot.autoconfigure" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </root>
+</configuration>

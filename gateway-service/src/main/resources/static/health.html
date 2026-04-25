@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>System Health - Stock Analytics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Segoe UI', -apple-system, sans-serif;
+            margin: 0;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: #0f172a;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar .brand { font-weight: 700; letter-spacing: .3px; }
+        .navbar .links a {
+            color: #cbd5e1; text-decoration: none; padding: 8px 10px;
+            border-radius: 8px; margin-left: 8px;
+        }
+        .navbar .links a.active, .navbar .links a:hover { color: #fff; background: rgba(255,255,255,.1); }
+
+        .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+        .header-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .header-row h1 { margin: 0; font-size: 24px; color: #f1f5f9; }
+        .overall-badge {
+            padding: 8px 20px; border-radius: 20px; font-weight: 700; font-size: 14px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .overall-badge.healthy { background: #065f46; color: #6ee7b7; }
+        .overall-badge.degraded { background: #78350f; color: #fcd34d; }
+        .overall-badge.down { background: #7f1d1d; color: #fca5a5; }
+
+        .summary-cards {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px; margin-bottom: 28px;
+        }
+        .summary-card {
+            background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+            padding: 16px; text-align: center;
+        }
+        .summary-card .label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+        .summary-card .value { font-size: 24px; font-weight: 700; }
+        .summary-card .value.green { color: #34d399; }
+        .summary-card .value.red { color: #f87171; }
+        .summary-card .value.yellow { color: #fbbf24; }
+        .summary-card .value.blue { color: #60a5fa; }
+
+        .services-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 16px; margin-bottom: 28px;
+        }
+        .service-card {
+            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+            padding: 18px; transition: border-color 0.3s;
+        }
+        .service-card.up { border-left: 4px solid #34d399; }
+        .service-card.down { border-left: 4px solid #f87171; }
+        .service-card.checking { border-left: 4px solid #94a3b8; }
+
+        .service-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .service-name { font-weight: 700; font-size: 15px; color: #f1f5f9; }
+        .service-port { font-size: 12px; color: #64748b; font-family: monospace; }
+
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+            margin-right: 6px;
+        }
+        .status-dot.up { background: #34d399; box-shadow: 0 0 6px #34d399; }
+        .status-dot.down { background: #f87171; box-shadow: 0 0 6px #f87171; }
+        .status-dot.checking { background: #94a3b8; animation: pulse 1.5s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-text { font-size: 13px; font-weight: 600; }
+        .status-text.up { color: #34d399; }
+        .status-text.down { color: #f87171; }
+        .status-text.checking { color: #94a3b8; }
+
+        .service-details { font-size: 12px; color: #94a3b8; }
+        .service-details .row {
+            display: flex; justify-content: space-between; padding: 4px 0;
+            border-bottom: 1px solid #1e293b;
+        }
+        .service-details .row:last-child { border-bottom: none; }
+        .service-details .val { color: #cbd5e1; font-family: monospace; }
+
+        .refresh-bar {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+        }
+        .btn {
+            padding: 8px 16px; border: none; border-radius: 8px;
+            cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s;
+        }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-outline { background: transparent; border: 1px solid #475569; color: #94a3b8; }
+        .btn-outline:hover { border-color: #64748b; color: #e2e8f0; }
+
+        .auto-refresh { font-size: 12px; color: #64748b; }
+        .last-check { font-size: 12px; color: #64748b; }
+
+        .log-section {
+            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+            padding: 18px; margin-top: 20px;
+        }
+        .log-section h3 { margin: 0 0 12px; font-size: 15px; color: #f1f5f9; }
+        .log-entries {
+            max-height: 300px; overflow-y: auto; font-family: monospace;
+            font-size: 12px; line-height: 1.6;
+        }
+        .log-entry { padding: 2px 0; }
+        .log-entry .time { color: #64748b; }
+        .log-entry .svc { color: #60a5fa; font-weight: 600; }
+        .log-entry.error .msg { color: #f87171; }
+        .log-entry.success .msg { color: #34d399; }
+        .log-entry.warn .msg { color: #fbbf24; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html" class="active">Health</a>
+    </div>
+</div>
+
+<div class="wrap">
+    <div class="header-row">
+        <h1>System Health</h1>
+        <div id="overall-badge" class="overall-badge checking">Checking...</div>
+    </div>
+
+    <div class="refresh-bar">
+        <button class="btn btn-primary" onclick="checkAllServices()">Refresh Now</button>
+        <label class="auto-refresh">
+            <input type="checkbox" id="auto-refresh" checked onchange="toggleAutoRefresh()">
+            Auto-refresh every 30s
+        </label>
+        <span class="last-check" id="last-check"></span>
+    </div>
+
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div class="label">Services Up</div>
+            <div class="value green" id="stat-up">-</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Services Down</div>
+            <div class="value red" id="stat-down">-</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Total Services</div>
+            <div class="value blue" id="stat-total">-</div>
+        </div>
+        <div class="summary-card">
+            <div class="label">Avg Response</div>
+            <div class="value" id="stat-avg-response">-</div>
+        </div>
+    </div>
+
+    <div class="services-grid" id="services-grid"></div>
+
+    <div class="log-section">
+        <h3>Health Check Log</h3>
+        <div class="log-entries" id="log-entries"></div>
+    </div>
+</div>
+
+<script>
+let autoRefreshInterval = null;
+let logEntries = [];
+
+function addLog(service, status, message) {
+    const time = new Date().toLocaleTimeString();
+    const type = status === "up" ? "success" : status === "down" ? "error" : "warn";
+    logEntries.unshift({ time, service, message, type });
+    if (logEntries.length > 100) logEntries.pop();
+    renderLogs();
+}
+
+function renderLogs() {
+    const el = document.getElementById("log-entries");
+    el.innerHTML = logEntries.map(l =>
+        `<div class="log-entry ${l.type}">
+            <span class="time">${l.time}</span>
+            <span class="svc">[${l.service}]</span>
+            <span class="msg">${l.message}</span>
+        </div>`
+    ).join("");
+}
+
+function renderServiceCard(svc) {
+    const isUp = svc.status === "UP";
+    const statusClass = isUp ? "up" : "down";
+    const statusLabel = isUp ? "UP" : "DOWN";
+
+    let detailHtml = "";
+    if (svc.responseTime != null) {
+        const rt = svc.responseTime;
+        const rtColor = rt < 500 ? "#34d399" : rt < 2000 ? "#fbbf24" : "#f87171";
+        detailHtml += `<div class="row"><span>Response</span><span class="val" style="color:${rtColor}">${rt}ms</span></div>`;
+    }
+    if (!isUp && svc.error) {
+        // Show short error message
+        let errMsg = svc.error;
+        if (errMsg.length > 80) errMsg = errMsg.substring(0, 80) + "...";
+        detailHtml += `<div class="row"><span>Error</span><span class="val" style="color:#f87171">${errMsg}</span></div>`;
+    }
+
+    return `
+        <div class="service-card ${statusClass}">
+            <div class="service-header">
+                <div>
+                    <span class="service-name">${svc.name}</span>
+                    <span class="service-port">:${svc.port}</span>
+                </div>
+                <div>
+                    <span class="status-dot ${statusClass}"></span>
+                    <span class="status-text ${statusClass}">${statusLabel}</span>
+                </div>
+            </div>
+            <div class="service-details">${detailHtml}</div>
+        </div>
+    `;
+}
+
+async function checkAllServices() {
+    const grid = document.getElementById("services-grid");
+
+    // Show checking state
+    grid.innerHTML = `<div class="service-card checking" style="grid-column:1/-1;text-align:center;padding:40px;">
+        <span class="status-dot checking"></span>
+        <span class="status-text checking">Checking all services...</span>
+    </div>`;
+
+    try {
+        const res = await fetch("/api/system/health");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const services = data.services || [];
+
+        // Render cards
+        grid.innerHTML = services.map(svc => renderServiceCard(svc)).join("");
+
+        // Update summary
+        document.getElementById("stat-up").textContent = data.servicesUp || 0;
+        document.getElementById("stat-down").textContent = data.servicesDown || 0;
+        document.getElementById("stat-total").textContent = data.totalServices || 0;
+        document.getElementById("stat-avg-response").textContent = (data.avgResponseMs || 0) + "ms";
+
+        // Overall badge
+        const badge = document.getElementById("overall-badge");
+        if (data.overall === "HEALTHY") {
+            badge.textContent = "All Systems Operational";
+            badge.className = "overall-badge healthy";
+        } else if (data.overall === "DEGRADED") {
+            badge.textContent = "Degraded";
+            badge.className = "overall-badge degraded";
+        } else {
+            badge.textContent = "Major Outage";
+            badge.className = "overall-badge down";
+        }
+
+        // Add log entries
+        for (const svc of services) {
+            const isUp = svc.status === "UP";
+            addLog(svc.name, isUp ? "up" : "down",
+                isUp ? `Healthy (${svc.responseTime}ms)` : `DOWN - ${svc.error || "unreachable"}`
+            );
+        }
+
+        document.getElementById("last-check").textContent =
+            `Last checked: ${new Date().toLocaleTimeString()} (${data.checkDurationMs}ms)`;
+
+    } catch (e) {
+        grid.innerHTML = `<div class="service-card down" style="grid-column:1/-1;text-align:center;padding:40px;">
+            <span class="status-text down">Failed to reach health API: ${e.message}</span>
+        </div>`;
+        addLog("System", "down", `Health API error: ${e.message}`);
+    }
+}
+
+function toggleAutoRefresh() {
+    const checked = document.getElementById("auto-refresh").checked;
+    if (checked) {
+        autoRefreshInterval = setInterval(checkAllServices, 30000);
+    } else {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+// Initial check
+checkAllServices();
+autoRefreshInterval = setInterval(checkAllServices, 30000);
+</script>
+</body>
+</html>

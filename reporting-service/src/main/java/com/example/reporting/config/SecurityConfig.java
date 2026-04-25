@@ -25,7 +25,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/public/**").permitAll()
-                        .requestMatchers("/api/**").authenticated() // protect API
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api/rs-rating/**").permitAll()  // RS Rating endpoints (internal service calls)
+                        .requestMatchers("/api/**").authenticated() // protect other API endpoints
                         .requestMatchers("/", "/index.html", "/styles.css", "/app.js").permitAll() // allow static files
                         .anyRequest().authenticated()
                 )

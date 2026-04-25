@@ -10,6 +10,7 @@ import com.example.portfolio_service.dto.QuoteDTO;
 import com.example.portfolio_service.model.Position;
 import com.example.portfolio_service.quotes.QuotesClient;
 import com.example.portfolio_service.security.CurrentUser;
+import com.example.portfolio_service.service.PortfolioReturnsService;
 import com.example.portfolio_service.service.PortfolioService;
 import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.validation.Valid;
@@ -33,9 +34,10 @@ public class PortfolioController {
     private final PortfolioService service;
     private final CurrentUser current;
     private final QuotesClient quotesClient;
+    private final PortfolioReturnsService returnsService;
 
     // ----- Positions CRUD -----
-    @Retry(name = "backendRetry")
+    @Retry(name = "reportingClient")
     @GetMapping("/positions")
     public List<Position> list(Authentication auth) {
         return service.list(current.sub(auth));
@@ -102,6 +104,48 @@ public class PortfolioController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Bulk import positions from Zerodha or other brokers.
+     * POST /api/portfolio/positions/bulk
+     * Body: { "positions": [ { "ticker": "RELIANCE", "quantity": 10, "buyPrice": 2450.00 }, ... ] }
+     */
+    @PostMapping("/positions/bulk")
+    public ResponseEntity<?> bulkImport(@RequestBody BulkImportRequest request,
+                                        @AuthenticationPrincipal Jwt jwt) {
+        if (request.getPositions() == null || request.getPositions().isEmpty()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "error", "No positions provided"
+            ));
+        }
+
+        int imported = service.bulkCreate(jwt.getSubject(), request.getPositions());
+
+        return ResponseEntity.ok(java.util.Map.of(
+                "imported", imported,
+                "total", request.getPositions().size(),
+                "skipped", request.getPositions().size() - imported
+        ));
+    }
+
+    // DTO for bulk import
+    @lombok.Data
+    public static class BulkImportRequest {
+        private List<PositionRequest> positions;
+    }
+
+    /**
+     * Fix malformed tickers (remove quotes, add NSE: prefix).
+     * POST /api/portfolio/positions/fix-tickers
+     */
+    @PostMapping("/positions/fix-tickers")
+    public ResponseEntity<?> fixTickers(@AuthenticationPrincipal Jwt jwt) {
+        int fixed = service.fixMalformedTickers(jwt.getSubject());
+        return ResponseEntity.ok(java.util.Map.of(
+                "fixed", fixed,
+                "message", fixed > 0 ? "Fixed " + fixed + " positions" : "No positions needed fixing"
+        ));
+    }
+
     // ----- Enriched holdings + summary -----
     @GetMapping("/holdings")
     public List<HoldingDTO> holdings(Authentication auth) {
@@ -111,5 +155,60 @@ public class PortfolioController {
     @GetMapping("/summary")
     public PortfolioSummaryDTO summary(Authentication auth) {
         return service.summary(current.sub(auth));
+    }
+
+    // ----- Portfolio Returns (XIRR) -----
+    @GetMapping("/returns")
+    public PortfolioReturnsService.PortfolioReturnsDTO returns(
+            @AuthenticationPrincipal Jwt jwt) {
+        return returnsService.calculatePortfolioXIRR(jwt.getSubject(), jwt.getTokenValue());
+    }
+
+    // ----- Portfolio History (for charting) -----
+
+    /**
+     * Capture today's portfolio snapshot.
+     * Call this endpoint once daily to build historical data.
+     */
+    @PostMapping("/snapshot")
+    public ResponseEntity<?> captureSnapshot(@AuthenticationPrincipal Jwt jwt) {
+        var snapshot = returnsService.captureSnapshot(jwt.getSubject(), jwt.getTokenValue());
+        if (snapshot == null) {
+            return ResponseEntity.ok(java.util.Map.of(
+                    "success", false,
+                    "message", "No positions to snapshot"
+            ));
+        }
+        return ResponseEntity.ok(java.util.Map.of(
+                "success", true,
+                "snapshotDate", snapshot.getSnapshotDate().toString(),
+                "totalValue", snapshot.getTotalValue(),
+                "totalWealth", snapshot.getTotalWealth(),
+                "normalizedValue", snapshot.getNormalizedValue(),
+                "positionsCount", snapshot.getPositionsCount()
+        ));
+    }
+
+    /**
+     * Get historical portfolio data for charting.
+     */
+    @GetMapping("/history")
+    public PortfolioReturnsService.PortfolioHistoryDTO history(
+            @AuthenticationPrincipal Jwt jwt) {
+        return returnsService.getPortfolioHistory(jwt.getSubject());
+    }
+
+    /**
+     * Manual trigger to capture snapshots for all users.
+     * Useful for testing or catching up on missed days.
+     */
+    @PostMapping("/snapshots/capture-all")
+    public ResponseEntity<?> captureAllSnapshots() {
+        int count = returnsService.captureSnapshotsForAllUsers();
+        return ResponseEntity.ok(java.util.Map.of(
+                "success", true,
+                "snapshotsCaptured", count,
+                "date", java.time.LocalDate.now().toString()
+        ));
     }
 }

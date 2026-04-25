@@ -4,16 +4,19 @@ package com.example.portfolio_service.quotes;
 
 import com.example.portfolio_service.dto.QuoteDTO;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -80,7 +83,8 @@ public class QuotesClient {
 
 
 
-    @Retry(name = "backendRetry")
+
+
     @CircuitBreaker(name = "reportingClient", fallbackMethod = "fallbackBatchQuotes")
     public Mono<List<QuoteDTO>> batchQuotes(List<String> tickers, String bearerToken) {
         return webClient.get()
@@ -92,9 +96,26 @@ public class QuotesClient {
                 .headers(h -> h.setBearerAuth(bearerToken))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
+                // treat all 5xx as errors we want to retry
+                .onStatus(HttpStatusCode::is5xxServerError, resp ->
+                        resp.createException()
+                                .flatMap(Mono::error)
+                )
                 .bodyToFlux(QuoteDTO.class)
+                // 🔁 explicit retry with Reactor
+                .retryWhen(
+                        Retry
+                                .backoff(3, Duration.ofMillis(3500))
+                                .filter(ex -> ex instanceof WebClientResponseException || ex instanceof IOException)
+                                .doBeforeRetry(signal -> {
+                                    System.out.println("🔁 RETRY " + (signal.totalRetriesInARow() + 1) +
+                                            " for tickers = " + tickers +
+                                            " due to: " + signal.failure());
+                                })
+                                .onRetryExhaustedThrow((spec, signal) -> signal.failure())
+                )
+
                 .collectList();
-               // .timeout(Duration.ofMillis(1200)); // extra guard so slow calls fail fast
     }
 
     // Fallback MUST match args + Throwable at end

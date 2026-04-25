@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quarterly Results Analysis</title>
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
+    <style>
+        :root { --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --soft:#eef2ff; --border:#e5e7eb; --primary:#2563eb; }
+        body{ margin:0; font-family:Segoe UI, Arial, sans-serif; background:#f9fafb; color:#111827; }
+        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; position:sticky; top:0; z-index:100; }
+        .brand{ font-weight:700; letter-spacing:.3px; }
+        .links a{ color:#cbd5e1; text-decoration:none; padding:8px 10px; border-radius:8px; margin-left:8px; }
+        .links a.active, .links a:hover{ color:#fff; background:rgba(255,255,255,.1); }
+        .wrap{ padding:20px; max-width:1400px; margin:0 auto; }
+
+        .btn{ padding:8px 12px; border:none; border-radius:8px; cursor:pointer; font-weight:600; }
+        .btn-primary{ background:var(--primary); color:white; }
+        .btn-outline{ background:#fff; border:1px solid var(--border); }
+        .btn-success{ background:#059669; color:white; }
+        .btn-muted{ background:#e5e7eb; }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .results-header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .ticker-search {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .ticker-search {
+            position: relative;
+        }
+        .ticker-search input {
+            padding: 10px 15px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 250px;
+            font-size: 14px;
+        }
+        .suggestions-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 350px;
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            display: none;
+        }
+        .suggestions-box.show { display: block; }
+        .suggestion-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+        }
+        .suggestion-item:hover {
+            background: #f0f7ff;
+        }
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        .suggestion-ticker {
+            font-weight: 600;
+            color: var(--primary);
+        }
+        .suggestion-company {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .company-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .company-header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .company-header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+        .company-header .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 12px;
+        }
+        .pdf-link {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(255,255,255,0.15);
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+        .pdf-link:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .results-table th, .results-table td {
+            padding: 12px 16px;
+            text-align: right;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        .results-table th:first-child, .results-table td:first-child {
+            text-align: left;
+            font-weight: 500;
+        }
+        .results-table thead {
+            background: #f8f9fa;
+        }
+        .results-table thead th {
+            font-weight: 600;
+            color: #374151;
+            font-size: 13px;
+        }
+        .results-table tbody tr:hover {
+            background: #f0f7ff;
+        }
+
+        .positive { color: #059669; }
+        .negative { color: #dc2626; }
+
+        .growth-cell {
+            text-align: right;
+        }
+        .growth-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .growth-badge.up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .growth-badge.down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .margin-row {
+            background: #fafafa;
+        }
+        .margin-row td {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #374151;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .bank-metric {
+            background: #fef3c7;
+        }
+
+        .muted { color: var(--muted); font-size: 12px; margin-top: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html" class="active">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html">Health</a>
+    </div>
+</div>
+
+<div class="wrap">
+    <div class="results-header">
+        <h1>Quarterly Results Analysis</h1>
+        <div class="ticker-search">
+            <input type="text" id="ticker-input" placeholder="Search company or ticker..."
+                   onkeydown="if(event.key==='Enter') { hideSuggestions(); searchTicker(); }"
+                   oninput="onTickerInput(event)"
+                   autocomplete="off">
+            <div class="suggestions-box" id="suggestions-box"></div>
+            <button class="btn btn-primary" onclick="searchTicker()">Search</button>
+            <button class="btn btn-success" onclick="forceRefresh()" title="Parse from PDF (primary), Screener as fallback">Refresh</button>
+            <button class="btn btn-outline" onclick="fetchFromScreener()" title="Force fetch from Screener.in only">Screener</button>
+            <button class="btn btn-outline" onclick="loadPortfolioResults()">Load Portfolio</button>
+        </div>
+        <button id="logout-btn" class="btn btn-muted">Logout</button>
+    </div>
+
+    <div id="results-content">
+        <div class="empty-state">
+            <h3>Enter a ticker or load portfolio results</h3>
+            <p>Search for a stock to see its quarterly financial performance with QoQ and YoY comparisons.</p>
+            <p style="margin-top:10px; color:#6b7280; font-size:13px;">
+                Click "Refresh" to parse from announcement PDFs (primary) with Screener.in as fallback.
+            </p>
+        </div>
+    </div>
+
+    <div class="muted">Data is parsed from company result PDFs. QoQ = Quarter-over-Quarter, YoY = Year-over-Year.</div>
+</div>
+
+<script src="token-utils.js"></script>
+<script>
+    // Results API is served from Python results-service
+    const RESULTS_API_BASE = window.location.hostname === "localhost"
+        ? "http://localhost:8082/results-service/api/results"
+        : `${window.location.origin}/results-service/api/results`;
+
+    const PORTFOLIO_API_BASE = window.location.hostname === "localhost"
+        ? "http://localhost:8082/portfolio-service/api/portfolio"
+        : `${window.location.origin}/portfolio-service/api/portfolio`;
+
+    const ANN_API_BASE = window.location.hostname === "localhost"
+        ? "http://localhost:8082/announcement-service/api/announcements"
+        : `${window.location.origin}/announcement-service/api/announcements`;
+
+    // ========= Autocomplete =========
+    const suggestBox = document.getElementById("suggestions-box");
+    const tickerInput = document.getElementById("ticker-input");
+    let debounceTimer = null;
+
+    function onTickerInput(e) {
+        const q = e.target.value.trim();
+        if (q.length < 2) {
+            hideSuggestions();
+            return;
+        }
+        // Debounce: wait 300ms after typing stops
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => fetchSuggestions(q), 300);
+    }
+
+    async function fetchSuggestions(query) {
+        try {
+            const res = await fetchWithAuth(`${ANN_API_BASE}/search?q=${encodeURIComponent(query)}`);
+            if (!res.ok) {
+                hideSuggestions();
+                return;
+            }
+            const suggestions = await res.json();
+            renderSuggestions(suggestions);
+        } catch (e) {
+            console.log("Autocomplete error:", e);
+            hideSuggestions();
+        }
+    }
+
+    function renderSuggestions(suggestions) {
+        if (!suggestions || suggestions.length === 0) {
+            hideSuggestions();
+            return;
+        }
+
+        let html = '';
+        for (const s of suggestions) {
+            const ticker = s.nseTicker || '';
+            const company = s.companyName || '';
+            const displayTicker = ticker || s.scripCode || '';
+            html += `<div class="suggestion-item" onclick="selectSuggestion('${ticker || company}', '${company}')">
+                <span class="suggestion-ticker">${displayTicker}</span>
+                <div class="suggestion-company">${company}</div>
+            </div>`;
+        }
+        suggestBox.innerHTML = html;
+        suggestBox.classList.add('show');
+    }
+
+    function selectSuggestion(ticker, company) {
+        tickerInput.value = ticker || company;
+        hideSuggestions();
+        searchTicker();
+    }
+
+    function hideSuggestions() {
+        suggestBox.classList.remove('show');
+        suggestBox.innerHTML = '';
+    }
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.ticker-search')) {
+            hideSuggestions();
+        }
+    });
+
+    /**
+     * Parse results from announcements - finds financial result PDFs and triggers parsing.
+     */
+    async function parseFromAnnouncements() {
+        const ticker = document.getElementById("ticker-input").value.trim().toUpperCase();
+        if (!ticker) {
+            alert("Please enter a ticker symbol first");
+            return;
+        }
+
+        const content = document.getElementById("results-content");
+        content.innerHTML = '<div class="loading">Searching for financial result PDFs for ' + ticker + '...</div>';
+
+        try {
+            // Get announcements for this ticker
+            const annRes = await fetchWithAuth(`${ANN_API_BASE}/by-tickers?tickers=${ticker}&days=90`);
+            if (!annRes.ok) {
+                content.innerHTML = '<div class="empty-state"><h3>Could not fetch announcements</h3><p>Status: ' + annRes.status + '</p></div>';
+                return;
+            }
+
+            const announcements = await annRes.json();
+            console.log("Announcements for " + ticker + ":", announcements);
+
+            // Filter for financial results
+            const resultKeywords = ['financial result', 'quarterly result', 'un-audited financial',
+                                    'unaudited financial', 'audited financial', 'outcome of board meeting',
+                                    'board meeting outcome'];
+            const resultAnnouncements = announcements.filter(a => {
+                const subject = (a.subject || '').toLowerCase();
+                return resultKeywords.some(kw => subject.includes(kw)) && a.pdfUrl;
+            });
+
+            if (resultAnnouncements.length === 0) {
+                content.innerHTML = '<div class="empty-state"><h3>No financial result PDFs found for ' + ticker + '</h3><p>Try checking the announcements page for PDFs.</p></div>';
+                return;
+            }
+
+            content.innerHTML = '<div class="loading">Found ' + resultAnnouncements.length + ' financial result(s). Parsing...</div>';
+
+            // Trigger parsing for each result PDF
+            let parsedCount = 0;
+            for (const ann of resultAnnouncements.slice(0, 3)) { // Limit to 3 most recent
+                try {
+                    const parseRes = await fetchWithAuth(
+                        `${RESULTS_API_BASE}/parse?ticker=${ticker}&pdfUrl=${encodeURIComponent(ann.pdfUrl)}&announcementId=${ann.id || ''}`,
+                        { method: 'POST' }
+                    );
+                    if (parseRes.ok) {
+                        parsedCount++;
+                        console.log("Parsed result from:", ann.pdfUrl);
+                    }
+                } catch (e) {
+                    console.warn("Failed to parse:", ann.pdfUrl, e);
+                }
+            }
+
+            if (parsedCount > 0) {
+                content.innerHTML = '<div class="loading">Parsed ' + parsedCount + ' result(s). Loading data...</div>';
+                await new Promise(r => setTimeout(r, 500)); // Brief delay
+                searchTicker(); // Reload results
+            } else {
+                content.innerHTML = '<div class="empty-state"><h3>Failed to parse results</h3><p>The PDF format may not be supported.</p></div>';
+            }
+
+        } catch (e) {
+            console.error("Parse error:", e);
+            content.innerHTML = '<div class="empty-state"><h3>Error</h3><p>' + e.message + '</p></div>';
+        }
+    }
+
+    /**
+     * Fetch results from Screener.in - more reliable than PDF parsing.
+     */
+    async function fetchFromScreener() {
+        const ticker = document.getElementById("ticker-input").value.trim().toUpperCase();
+        if (!ticker) {
+            alert("Please enter a ticker symbol first");
+            return;
+        }
+
+        const content = document.getElementById("results-content");
+        content.innerHTML = '<div class="loading">Fetching quarterly results from Screener.in for ' + ticker + '...</div>';
+
+        try {
+            const res = await fetchWithAuth(`${RESULTS_API_BASE}/screener/${ticker}`);
+            console.log("Screener response status:", res.status);
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                content.innerHTML = '<div class="empty-state"><h3>Could not fetch from Screener</h3><p>' + errText + '</p></div>';
+                return;
+            }
+
+            const data = await res.json();
+            console.log("Screener data:", data);
+
+            if (!data.results || data.results.length === 0) {
+                content.innerHTML = '<div class="empty-state"><h3>No results found on Screener.in for ' + ticker + '</h3><p>The stock may not be listed on Screener.in or the ticker format may be different.</p></div>';
+                return;
+            }
+
+            // Show success message with source indicator
+            const sourceNote = '<div style="background:#d1fae5; padding:10px 16px; border-radius:8px; margin-bottom:16px; color:#065f46; font-size:13px;">' +
+                'Data fetched from Screener.in (' + data.resultCount + ' quarters). Source: screener</div>';
+
+            renderCompanyResults(data);
+            // Prepend source note
+            content.innerHTML = sourceNote + content.innerHTML;
+
+        } catch (e) {
+            console.error("Screener fetch error:", e);
+            content.innerHTML = '<div class="empty-state"><h3>Error fetching from Screener</h3><p>' + e.message + '</p></div>';
+        }
+    }
+
+    /**
+     * Force refresh from all sources - tries PDF first, then Screener as fallback.
+     */
+    async function forceRefresh() {
+        const ticker = document.getElementById("ticker-input").value.trim().toUpperCase();
+        if (!ticker) {
+            alert("Please enter a ticker symbol first");
+            return;
+        }
+
+        const content = document.getElementById("results-content");
+        content.innerHTML = '<div class="loading">Refreshing results for ' + ticker + '...<br><small>Trying PDF parsing first, then Screener as fallback</small></div>';
+
+        try {
+            const res = await fetchWithAuth(`${RESULTS_API_BASE}/refresh/${ticker}`, { method: 'POST' });
+            console.log("Refresh response status:", res.status);
+
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                content.innerHTML = '<div class="empty-state"><h3>Refresh failed</h3><p>' + errText + '</p></div>';
+                return;
+            }
+
+            const data = await res.json();
+            console.log("Refreshed data:", data);
+
+            if (!data.results || data.results.length === 0) {
+                content.innerHTML = '<div class="empty-state"><h3>No results found for ' + ticker + '</h3><p>Could not parse from announcement PDFs or fetch from Screener.</p></div>';
+                return;
+            }
+
+            // Show success with source - different colors for PDF vs Screener
+            const source = data.source || 'unknown';
+            const bgColor = source === 'pdf' ? '#dbeafe' : (source === 'screener' ? '#d1fae5' : '#fef3c7');
+            const textColor = source === 'pdf' ? '#1e40af' : (source === 'screener' ? '#065f46' : '#92400e');
+            const sourceLabel = source === 'pdf' ? 'Parsed from PDF' : (source === 'screener' ? 'Scraped from Screener.in' : source);
+            const sourceNote = `<div style="background:${bgColor}; padding:10px 16px; border-radius:8px; margin-bottom:16px; color:${textColor}; font-size:13px;">` +
+                `${sourceLabel} (${data.resultCount} quarters)</div>`;
+
+            renderCompanyResults(data);
+            content.innerHTML = sourceNote + content.innerHTML;
+
+        } catch (e) {
+            console.error("Refresh error:", e);
+            content.innerHTML = '<div class="empty-state"><h3>Error refreshing results</h3><p>' + e.message + '</p></div>';
+        }
+    }
+
+    async function searchTicker() {
+        const ticker = document.getElementById("ticker-input").value.trim().toUpperCase();
+        if (!ticker) return;
+
+        const content = document.getElementById("results-content");
+        content.innerHTML = '<div class="loading">Loading results for ' + ticker + '...</div>';
+
+        try {
+            const res = await fetchWithAuth(`${RESULTS_API_BASE}/ticker/${ticker}`);
+            console.log("Search response status:", res.status);
+
+            if (!res.ok) {
+                if (res.status === 404) {
+                    content.innerHTML = '<div class="empty-state"><h3>No results found for ' + ticker + '</h3><p>Try clicking "Fetch from Screener" to get data from Screener.in.</p></div>';
+                } else {
+                    const errText = await res.text().catch(() => '');
+                    content.innerHTML = '<div class="empty-state"><h3>Error loading results (Status: ' + res.status + ')</h3><p>' + errText + '</p></div>';
+                }
+                return;
+            }
+
+            const data = await res.json();
+            console.log("Results data:", data);
+
+            if (!data.results || data.results.length === 0) {
+                content.innerHTML = '<div class="empty-state"><h3>No results found for ' + ticker + '</h3><p>Click "Fetch from Screener" to get data from Screener.in.</p></div>';
+                return;
+            }
+
+            // Show source indicator
+            const source = data.source || 'cache';
+            const bgColor = source === 'screener' ? '#d1fae5' : (source === 'pdf' ? '#fef3c7' : '#e5e7eb');
+            const textColor = source === 'screener' ? '#065f46' : (source === 'pdf' ? '#92400e' : '#374151');
+            const sourceNote = `<div style="background:${bgColor}; padding:10px 16px; border-radius:8px; margin-bottom:16px; color:${textColor}; font-size:13px;">` +
+                `Showing ${data.resultCount} quarters for ${ticker}. Source: ${source}</div>`;
+
+            renderCompanyResults(data);
+            content.innerHTML = sourceNote + content.innerHTML;
+
+        } catch (e) {
+            console.error("Error:", e);
+            content.innerHTML = '<div class="empty-state"><h3>Error loading results</h3><p>' + e.message + '</p><p>Try "Fetch from Screener" for reliable data.</p></div>';
+        }
+    }
+
+    async function loadPortfolioResults() {
+        const content = document.getElementById("results-content");
+        content.innerHTML = '<div class="loading">Loading portfolio results...</div>';
+
+        try {
+            // First get portfolio positions
+            const posRes = await fetchWithAuth(`${PORTFOLIO_API_BASE}/positions`);
+            if (!posRes.ok) {
+                content.innerHTML = '<div class="empty-state"><h3>Could not load portfolio</h3><p>Status: ' + posRes.status + '</p></div>';
+                return;
+            }
+
+            const positions = await posRes.json();
+            if (!positions || positions.length === 0) {
+                content.innerHTML = '<div class="empty-state"><h3>No positions in portfolio</h3></div>';
+                return;
+            }
+
+            // Extract tickers
+            const tickers = positions.map(p => {
+                let t = p.ticker || "";
+                if (t.startsWith("NSE:")) t = t.substring(4);
+                return t;
+            }).filter(t => t);
+
+            console.log("Portfolio tickers:", tickers);
+
+            // Get results for all tickers
+            const url = new URL(`${RESULTS_API_BASE}/compare`);
+            tickers.forEach(t => url.searchParams.append("tickers", t));
+
+            const resRes = await fetchWithAuth(url);
+            if (!resRes.ok) {
+                content.innerHTML = '<div class="empty-state"><h3>No results available yet</h3><p>Results will appear as they are fetched. Try searching individual stocks with "Fetch from Screener".</p></div>';
+                return;
+            }
+
+            const data = await resRes.json();
+            console.log("Compare results:", data);
+            renderMultipleCompanyResults(data);
+
+        } catch (e) {
+            console.error("Error:", e);
+            content.innerHTML = '<div class="empty-state"><h3>Error loading portfolio results</h3><p>' + e.message + '</p></div>';
+        }
+    }
+
+    function renderCompanyResults(data) {
+        const content = document.getElementById("results-content");
+
+        if (!data.results || data.results.length === 0) {
+            content.innerHTML = '<div class="empty-state"><h3>No results found for ' + data.ticker + '</h3><p>No quarterly results have been parsed for this stock yet.</p></div>';
+            return;
+        }
+
+        const isBank = data.companyType === "BANK" || data.companyType === "NBFC";
+        content.innerHTML = renderCompanyCard(data.ticker, data.results, isBank);
+    }
+
+    function renderMultipleCompanyResults(data) {
+        const content = document.getElementById("results-content");
+
+        if (!data.resultsByTicker || Object.keys(data.resultsByTicker).length === 0) {
+            content.innerHTML = '<div class="empty-state"><h3>No results available for portfolio stocks</h3><p>Results will appear as they are parsed from company announcements.</p></div>';
+            return;
+        }
+
+        let html = '';
+        for (const [ticker, results] of Object.entries(data.resultsByTicker)) {
+            if (results && results.length > 0) {
+                const isBank = results[0].companyType === "BANK" || results[0].companyType === "NBFC";
+                html += renderCompanyCard(ticker, results, isBank);
+            }
+        }
+
+        content.innerHTML = html || '<div class="empty-state"><h3>No results available</h3></div>';
+    }
+
+    function renderCompanyCard(ticker, results, isBank) {
+        const latestResult = results[0];
+        const pdfLink = latestResult.pdfUrl
+            ? `<a href="${latestResult.pdfUrl}" target="_blank" class="pdf-link">View PDF</a>`
+            : '';
+
+        // Get up to 5 quarters for display
+        const quarters = results.slice(0, 5);
+
+        // Calculate QoQ and YoY for display (compare first two quarters for QoQ)
+        let revenueQoQ = null, patQoQ = null, pbtQoQ = null, ebitdaQoQ = null, epsQoQ = null;
+        let revenueYoY = null, patYoY = null, pbtYoY = null, ebitdaYoY = null, epsYoY = null;
+
+        if (quarters.length >= 2) {
+            const curr = quarters[0], prev = quarters[1];
+            if (curr.revenue && prev.revenue) revenueQoQ = ((curr.revenue - prev.revenue) / prev.revenue * 100);
+            if (curr.pbt && prev.pbt) pbtQoQ = ((curr.pbt - prev.pbt) / prev.pbt * 100);
+            if (curr.pat && prev.pat) patQoQ = ((curr.pat - prev.pat) / prev.pat * 100);
+            if (curr.ebitda && prev.ebitda) ebitdaQoQ = ((curr.ebitda - prev.ebitda) / prev.ebitda * 100);
+            if (curr.epsBasic && prev.epsBasic) epsQoQ = ((curr.epsBasic - prev.epsBasic) / prev.epsBasic * 100);
+        }
+
+        // YoY - find same quarter last year
+        if (quarters.length >= 5) {
+            const curr = quarters[0], yoy = quarters[4];
+            if (curr.revenue && yoy.revenue) revenueYoY = ((curr.revenue - yoy.revenue) / yoy.revenue * 100);
+            if (curr.pbt && yoy.pbt) pbtYoY = ((curr.pbt - yoy.pbt) / yoy.pbt * 100);
+            if (curr.pat && yoy.pat) patYoY = ((curr.pat - yoy.pat) / yoy.pat * 100);
+            if (curr.ebitda && yoy.ebitda) ebitdaYoY = ((curr.ebitda - yoy.ebitda) / yoy.ebitda * 100);
+            if (curr.epsBasic && yoy.epsBasic) epsYoY = ((curr.epsBasic - yoy.epsBasic) / yoy.epsBasic * 100);
+        }
+
+        let html = `
+            <div class="company-card">
+                <div class="company-header">
+                    <div style="display:flex;align-items:center;">
+                        <h2>${ticker}</h2>
+                        <span class="badge">${isBank ? 'Bank/NBFC' : 'Regular'}</span>
+                    </div>
+                    ${pdfLink}
+                </div>
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            ${quarters.map(q => `<th>${q.quarterLabel || q.quarter || 'Q?'}</th>`).join('')}
+                            <th>QoQ %</th>
+                            <th>YoY %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        if (isBank) {
+            // Bank metrics
+            html += renderMetricRow("NII", quarters, "nii", null, null);
+            html += renderMetricRow("Provisions", quarters, "provisions", null, null);
+        } else {
+            // Regular company metrics
+            html += renderMetricRow("Revenue", quarters, "revenue", revenueQoQ, revenueYoY);
+            html += renderMetricRow("EBITDA", quarters, "ebitda", ebitdaQoQ, ebitdaYoY);
+            html += renderMarginRow("EBITDA Margin", quarters, "ebitdaMargin", null, null);
+        }
+
+        html += renderMetricRow("PBT", quarters, "pbt", pbtQoQ, pbtYoY);
+        html += renderMetricRow("PAT", quarters, "pat", patQoQ, patYoY);
+        html += renderMarginRow("PAT Margin", quarters, "patMargin", null, null);
+        html += renderMetricRow("EPS", quarters, "epsBasic", epsQoQ, epsYoY);
+
+        if (isBank) {
+            html += renderMarginRow("NIM", quarters, "nim", null, null, true);
+            html += renderMarginRow("GNPA %", quarters, "gnpa", null, null, true);
+            html += renderMarginRow("NNPA %", quarters, "nnpa", null, null, true);
+        }
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        return html;
+    }
+
+    function renderMetricRow(label, quarters, field, qoq, yoy) {
+        let html = `<tr><td>${label}</td>`;
+
+        quarters.forEach(q => {
+            const val = q[field];
+            html += `<td>${formatNumber(val)}</td>`;
+        });
+
+        html += `<td class="growth-cell">${formatGrowth(qoq)}</td>`;
+        html += `<td class="growth-cell">${formatGrowth(yoy)}</td>`;
+        html += `</tr>`;
+
+        return html;
+    }
+
+    function renderMarginRow(label, quarters, field, qoqPp, yoyPp, isBankMetric = false) {
+        let html = `<tr class="margin-row ${isBankMetric ? 'bank-metric' : ''}"><td>${label}</td>`;
+
+        quarters.forEach(q => {
+            const val = q[field];
+            html += `<td>${val != null ? val.toFixed(1) + '%' : '-'}</td>`;
+        });
+
+        html += `<td class="growth-cell">${formatPpChange(qoqPp)}</td>`;
+        html += `<td class="growth-cell">${formatPpChange(yoyPp)}</td>`;
+        html += `</tr>`;
+
+        return html;
+    }
+
+    function formatNumber(val) {
+        if (val == null) return '-';
+        if (Math.abs(val) >= 100) {
+            return val.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        }
+        return val.toFixed(2);
+    }
+
+    function formatGrowth(val) {
+        if (val == null) return '-';
+        const isUp = val >= 0;
+        const cls = isUp ? 'up' : 'down';
+        const sign = isUp ? '+' : '';
+        return `<span class="growth-badge ${cls}">${sign}${val.toFixed(1)}%</span>`;
+    }
+
+    function formatPpChange(val) {
+        if (val == null) return '-';
+        const isUp = val >= 0;
+        const cls = isUp ? 'positive' : 'negative';
+        const sign = isUp ? '+' : '';
+        return `<span class="${cls}">${sign}${val.toFixed(1)}pp</span>`;
+    }
+
+    // Check for ticker in URL
+    document.addEventListener("DOMContentLoaded", function() {
+        const params = new URLSearchParams(window.location.search);
+        const ticker = params.get("ticker");
+        if (ticker) {
+            document.getElementById("ticker-input").value = ticker;
+            searchTicker();
+        }
+    });
+
+    // Logout handler
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+        const refreshToken = localStorage.getItem("refresh_token");
+        if (refreshToken) {
+            try {
+                await fetch("/oauth-service/token/revoke", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ refreshToken: refreshToken })
+                });
+            } catch (e) { console.log("Token revoke failed:", e); }
+        }
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        window.location.href = "index.html";
+    });
+</script>
+</body>
+</html>

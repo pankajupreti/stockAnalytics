@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <title>Portfolio</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
     <style>
         :root { --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --soft:#eef2ff; --border:#e5e7eb; --primary:#2563eb; }
         body{ margin:0; font-family:Segoe UI, Arial, sans-serif; background:#f9fafb; color:#111827; }
-        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; }
+        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; position:sticky; top:0; z-index:100; }
         .brand{ font-weight:700; letter-spacing:.3px; }
         .links a{ color:#cbd5e1; text-decoration:none; padding:8px 10px; border-radius:8px; margin-left:8px; }
         .links a.active, .links a:hover{ color:#fff; background:rgba(255,255,255,.1); }
@@ -67,6 +68,199 @@
 
 
         .err{ color:#ef4444; font-size:13px; margin-left:10px; }
+
+        /* Announcement badge */
+        .ann-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .ann-badge:hover { transform: scale(1.05); }
+        .ann-badge.has-ann {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+        .ann-badge.has-ann.has-unseen {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+            animation: pulse 2s infinite;
+        }
+        .ann-badge.has-ann.seen {
+            background: #f3f4f6;
+            color: #9ca3af;
+            border: 1px solid #e5e7eb;
+        }
+        .ann-badge.no-ann {
+            background: #f3f4f6;
+            color: #9ca3af;
+        }
+        .ann-icon { font-size: 14px; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Alert badge */
+        .alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .alert-badge:hover { transform: scale(1.05); }
+        .alert-badge.has-alert {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+        .alert-badge.has-triggered {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .alert-badge.no-alert {
+            background: #f3f4f6;
+            color: #9ca3af;
+        }
+        .alert-icon { font-size: 14px; }
+
+        /* Results badge */
+        .results-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+            text-decoration: none;
+        }
+        .results-badge:hover { transform: scale(1.05); }
+        .results-badge.has-results {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+        .results-badge.has-results.trend-up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .results-badge.has-results.trend-down {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .results-badge.no-results {
+            background: #f3f4f6;
+            color: #9ca3af;
+        }
+        .results-icon { font-size: 14px; }
+
+        /* Notification Bell */
+        .notif-bell-wrap {
+            position: relative;
+            cursor: pointer;
+            padding: 8px 12px;
+            margin-left: 10px;
+        }
+        .notif-bell { font-size: 20px; transition: all 0.2s; }
+        .notif-bell-wrap.has-unseen .notif-bell {
+            animation: bellRing 0.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 4px #fbbf24);
+        }
+        .notif-bell-wrap.no-alerts .notif-bell {
+            opacity: 0.6;
+        }
+        @keyframes bellRing {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(10deg); }
+            75% { transform: rotate(-10deg); }
+        }
+        .notif-badge {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 5px;
+            border-radius: 10px;
+            min-width: 16px;
+            text-align: center;
+        }
+        .notif-dropdown {
+            position: fixed;
+            top: 50px;
+            right: 20px;
+            width: 360px;
+            max-height: 400px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 100;
+            overflow: hidden;
+        }
+        .notif-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            font-weight: 600;
+        }
+        .notif-list {
+            max-height: 340px;
+            overflow-y: auto;
+        }
+        .notif-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            cursor: pointer;
+        }
+        .notif-item:hover { background: #f9fafb; }
+        .notif-item.unseen { background: #fef3c7; }
+        .notif-item .notif-ticker {
+            font-weight: 700;
+            color: #111827;
+        }
+        .notif-item .notif-type {
+            font-size: 12px;
+            color: #6b7280;
+            margin-left: 8px;
+        }
+        .notif-item .notif-price {
+            font-size: 13px;
+            color: #ef4444;
+            margin-top: 4px;
+        }
+        .notif-item .notif-time {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+        .notif-empty {
+            padding: 24px;
+            text-align: center;
+            color: #9ca3af;
+        }
     </style>
 </head>
 <body>
@@ -75,8 +269,33 @@
     <div class="brand">Stock Analytics</div>
     <div class="links">
         <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
         <a href="marketbreadth.html">Market Breadth</a>
         <a href="portfolio.html" class="active">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html">Health</a>
+        <!-- Notification Bell -->
+        <div class="notif-bell-wrap" id="notif-bell-wrap" onclick="toggleNotifDropdown()">
+            <span class="notif-bell">🔔</span>
+            <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Dropdown -->
+<div class="notif-dropdown" id="notif-dropdown" style="display:none;">
+    <div class="notif-header">
+        <span>Triggered Alerts</span>
+        <button class="btn btn-outline" style="padding:4px 8px;font-size:11px;" onclick="markAllSeen()">Mark all read</button>
+    </div>
+    <div class="notif-list" id="notif-list">
+        <div class="notif-empty">No triggered alerts</div>
     </div>
 </div>
 
@@ -105,7 +324,9 @@
     <div class="toolbar">
         <input id="filter" placeholder="Filter by ticker or name…" />
         <button id="apply-filter" class="btn btn-outline">Apply</button>
+        <button id="btn-refresh" class="btn btn-outline" style="background:#e0f2fe;border-color:#7dd3fc;" title="Refresh live prices">🔄 Refresh Prices</button>
         <span class="spacer" style="flex:1"></span>
+        <button id="btn-import" class="btn btn-outline" style="background:#f0fdf4;border-color:#86efac;">📥 Import Zerodha</button>
         <button id="btn-add" class="btn btn-primary">+ Add Position</button>
         <button id="logout-btn" class="btn btn-muted">Logout</button>
         <span id="err" class="err"></span>
@@ -156,13 +377,16 @@
                     Daily Change %
                 </th>
 
+                <th style="width:100px">Announcements</th>
+                <th style="width:80px">Alerts</th>
+                <th style="width:90px">Results</th>
                 <th style="width:180px">Notes</th>
                 <th style="width:160px">Actions</th>
             </tr>
             </thead>
 
             <tbody id="rows">
-            <tr><td colspan="12" class="muted">Loading…</td></tr>
+            <tr><td colspan="16" class="muted">Loading...</td></tr>
             </tbody>
         </table>
     </div>
@@ -204,6 +428,199 @@
     </div>
 </div>
 
+<!-- Sell Modal -->
+<div class="modal-backdrop" id="sell-modal-backdrop">
+    <div class="modal">
+        <header id="sell-modal-title">Sell Shares</header>
+        <div class="body">
+            <div class="field" style="grid-column:1 / -1">
+                <label>Ticker</label>
+                <input id="s-ticker" readonly style="background:#f3f4f6;font-weight:700;font-size:16px;" />
+            </div>
+            <div class="field">
+                <label>Available Qty</label>
+                <input id="s-available-qty" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label>Avg Buy Price ₹</label>
+                <input id="s-buy-price" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label>Current Price ₹</label>
+                <input id="s-cmp" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label>Unrealized P&L</label>
+                <input id="s-unrealized-pnl" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label for="s-qty">Qty to Sell *</label>
+                <input id="s-qty" type="number" min="1" placeholder="Enter quantity" />
+            </div>
+            <div class="field">
+                <label for="s-sell-price">Sell Price ₹ *</label>
+                <input id="s-sell-price" type="number" min="0" step="0.01" placeholder="Enter sell price" />
+            </div>
+            <div class="field">
+                <label for="s-date">Sell Date</label>
+                <input id="s-date" type="date" />
+            </div>
+            <div class="field">
+                <label>Est. Realized P&L</label>
+                <input id="s-realized-pnl" readonly style="background:#eef;font-weight:600;" />
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+                <label for="s-notes">Notes</label>
+                <textarea id="s-notes" rows="2" placeholder="Optional note..."></textarea>
+            </div>
+        </div>
+        <footer>
+            <button class="btn btn-outline" id="s-cancel">Cancel</button>
+            <button class="btn" id="s-sell-all" style="background:#fbbf24;color:#333;">Sell All</button>
+            <button class="btn btn-primary" id="s-save" style="background:#059669;">Confirm Sell</button>
+        </footer>
+    </div>
+</div>
+
+<!-- Add Shares Modal -->
+<div class="modal-backdrop" id="add-shares-modal-backdrop">
+    <div class="modal">
+        <header id="add-shares-modal-title">Add More Shares</header>
+        <div class="body">
+            <div class="field" style="grid-column:1 / -1">
+                <label>Ticker</label>
+                <input id="as-ticker" readonly style="background:#f3f4f6;font-weight:700;font-size:16px;" />
+            </div>
+            <div class="field">
+                <label>Current Qty</label>
+                <input id="as-current-qty" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label>Avg Buy Price ₹</label>
+                <input id="as-avg-price" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label>Current Price ₹</label>
+                <input id="as-cmp" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label>New Avg Price</label>
+                <input id="as-new-avg" readonly style="background:#eef;font-weight:600;" />
+            </div>
+            <div class="field">
+                <label for="as-qty">Qty to Add *</label>
+                <input id="as-qty" type="number" min="1" placeholder="Enter quantity" />
+            </div>
+            <div class="field">
+                <label for="as-price">Buy Price ₹ *</label>
+                <input id="as-price" type="number" min="0" step="0.01" placeholder="Enter buy price" />
+            </div>
+            <div class="field">
+                <label for="as-date">Buy Date</label>
+                <input id="as-date" type="date" />
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+                <label for="as-notes">Notes</label>
+                <textarea id="as-notes" rows="2" placeholder="Optional note..."></textarea>
+            </div>
+        </div>
+        <footer>
+            <button class="btn btn-outline" id="as-cancel">Cancel</button>
+            <button class="btn btn-primary" id="as-save">Add Shares</button>
+        </footer>
+    </div>
+</div>
+
+<!-- Alert Modal -->
+<div class="modal-backdrop" id="alert-modal-backdrop">
+    <div class="modal">
+        <header id="alert-modal-title">Create Alert</header>
+        <div class="body">
+            <div class="field" style="grid-column:1 / -1">
+                <label>Ticker</label>
+                <input id="a-ticker" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label for="a-type">Alert Type</label>
+                <select id="a-type" style="padding:8px;border:1px solid var(--border);border-radius:8px;">
+                    <option value="STOP_LOSS">Stop Loss (5% below buy)</option>
+                    <option value="PRICE_BELOW">Price Below ₹</option>
+                    <option value="PRICE_ABOVE">Price Above ₹</option>
+                    <option value="PCT_BELOW">% Below Current</option>
+                    <option value="PCT_ABOVE">% Above Current</option>
+                </select>
+            </div>
+            <div class="field" id="target-field">
+                <label for="a-target" id="a-target-label">Target Price ₹</label>
+                <input id="a-target" type="number" min="0" step="0.01" />
+            </div>
+            <div class="field">
+                <label>Buy Price ₹</label>
+                <input id="a-buyprice" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label>Current Price ₹</label>
+                <input id="a-cmp" readonly style="background:#f3f4f6;" />
+            </div>
+            <div class="field">
+                <label for="a-email">Email for Notification</label>
+                <input id="a-email" type="email" placeholder="your@email.com" />
+            </div>
+            <div class="field">
+                <label for="a-telegram">Telegram Chat ID</label>
+                <input id="a-telegram" type="text" placeholder="Optional - start chat with bot first" />
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+                <div id="a-hint" class="muted" style="font-size:13px;color:#059669;font-weight:500;"></div>
+            </div>
+        </div>
+        <footer>
+            <button class="btn btn-outline" id="a-cancel">Cancel</button>
+            <button class="btn btn-primary" id="a-save">Create Alert</button>
+        </footer>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-backdrop" id="import-modal-backdrop">
+    <div class="modal" style="width:600px;">
+        <header>Import from Zerodha</header>
+        <div class="body" style="display:block;">
+            <p style="font-size:13px;color:var(--muted);margin:0 0 12px;">
+                Export your holdings from Zerodha Kite (Holdings → Export) and paste the data below or upload the file.
+            </p>
+            <div class="field" style="margin-bottom:12px;">
+                <label>Upload CSV/Excel file</label>
+                <input type="file" id="import-file" accept=".csv,.xlsx,.xls,.txt" style="padding:8px;border:1px dashed var(--border);border-radius:8px;width:100%;"/>
+            </div>
+            <div class="field">
+                <label>Or paste data (tab/comma separated)</label>
+                <textarea id="import-data" rows="8" placeholder="Instrument&#9;Qty.&#9;Avg. cost&#9;LTP&#9;...
+RELIANCE&#9;10&#9;2450.00&#9;2500.00&#9;...
+TCS&#9;5&#9;3500.00&#9;3600.00&#9;..." style="width:100%;font-family:monospace;font-size:12px;"></textarea>
+            </div>
+            <div id="import-preview" style="margin-top:12px;display:none;">
+                <div style="font-weight:600;margin-bottom:8px;">Preview (<span id="import-count">0</span> positions)</div>
+                <div style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
+                    <table style="width:100%;margin:0;">
+                        <thead>
+                            <tr><th>Ticker</th><th>Qty</th><th>Avg Cost</th></tr>
+                        </thead>
+                        <tbody id="import-preview-rows"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="import-error" style="color:#ef4444;font-size:13px;margin-top:8px;"></div>
+        </div>
+        <footer>
+            <button class="btn btn-outline" id="import-cancel">Cancel</button>
+            <button class="btn btn-outline" id="import-parse">Parse Data</button>
+            <button class="btn btn-primary" id="import-save" disabled>Import All</button>
+        </footer>
+    </div>
+</div>
+
+<script src="token-utils.js"></script>
 <script src="portfolio.js" defer></script>
 </body>
 </html>

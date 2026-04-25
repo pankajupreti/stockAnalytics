@@ -9,6 +9,30 @@ let positions = [];     // cache of positions from API
 let editingId = null;   // null => create, otherwise update
 let cmpMap = {};        // CMP cache (if your backend provides, wire it here)
 let dayPctMap = {};      // ticker -> daily change % (e.g. +1.23 or -0.75)
+let announcementCounts = {};  // ticker -> announcement count
+let announcementUnseenCounts = {};  // ticker -> unseen announcement count
+let alertCounts = {};         // ticker -> alert count
+let triggeredAlerts = [];     // list of triggered alerts for notification bell
+let notifDropdownOpen = false;
+let resultsData = {};         // ticker -> results summary (quarterLabel, patYoY, trend)
+
+// Announcement service base URL (authenticated endpoints via gateway)
+const ANN_API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8082/announcement-service/api/announcements"  // via gateway
+    : `${window.location.origin}/announcement-service/api/announcements`;  // via gateway
+
+// Alert service base URL (authenticated endpoints via gateway)
+const ALERT_API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8082/alert-service/api/alerts"  // via gateway
+    : `${window.location.origin}/alert-service/api/alerts`;  // via gateway
+
+// Results service base URL (authenticated endpoints via gateway)
+const RESULTS_API_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8082/results-service/api/results"  // via gateway
+    : `${window.location.origin}/results-service/api/results`;  // via gateway
 
 // ========= Autocomplete =========
 const suggestBox = document.getElementById("ticker-suggestions");
@@ -24,7 +48,7 @@ tickerInput.addEventListener("input", () => {
   suggestTimer = setTimeout(async () => {
     try {
       const url = `/portfolio-service/api/portfolio/quotes/search?q=${encodeURIComponent(q)}`;
-      const res = await fetch(url, { headers: authHeader() });
+      const res = await fetchWithAuth(url);
       if (!res.ok) return;
       const list = await res.json(); // [{ticker,name},...]
       suggestBox.innerHTML = list
@@ -78,8 +102,7 @@ async function loadCMPForTickers(tickers){
   // naive loop; you can batch on backend later
   for (const t of tickers){
     try{
-      const res = await fetch(`/portfolio-service/api/portfolio/quotes/price?ticker=${encodeURIComponent(t)}`,
-        { headers: authHeader() });
+      const res = await fetchWithAuth(`/portfolio-service/api/portfolio/quotes/price?ticker=${encodeURIComponent(t)}`);
       if (res.ok){
         const p = await res.json(); // {ticker, price}
         cmpMap[p.ticker] = p.price;
@@ -107,7 +130,7 @@ function fmtINR(n) {
 function byId(id){ return document.getElementById(id); }
 
 async function loadPositions() {
-  const res = await fetch(`${API_BASE}/positions`, { headers: authHeader() });
+  const res = await fetchWithAuth(`${API_BASE}/positions`);
   if (!res.ok) throw new Error(`Load positions failed (${res.status})`);
   positions = await res.json();
 }
@@ -139,7 +162,7 @@ async function loadPrices() {
   console.log('quotes URL:', url.toString());
 
   try {
-    const res = await fetch(url, { headers: authHeaderGET(), cache: 'no-store' });
+    const res = await fetchWithAuth(url);
     console.log('batch status', res.status);
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -187,6 +210,514 @@ function computeDayPct(ticker) {
   const v = dayPctMap[String(ticker || '').toUpperCase()];
   return (v === undefined ? null : v); // can be 0
 }
+function getAnnouncementCount(ticker) {
+  return announcementCounts[String(ticker || '').toUpperCase()] ?? 0;
+}
+
+function getAnnouncementUnseenCount(ticker) {
+  return announcementUnseenCounts[String(ticker || '').toUpperCase()] ?? 0;
+}
+
+function getAlertCount(ticker) {
+  return alertCounts[String(ticker || '').toUpperCase()] ?? 0;
+}
+
+// Load alert counts for portfolio tickers
+async function loadAlertCounts() {
+  alertCounts = {};
+  const tickers = [...new Set((positions || []).map(p => p.ticker).filter(Boolean))];
+  if (!tickers.length) return;
+
+  try {
+    const res = await fetchWithAuth(`${ALERT_API_BASE}/active`);
+    if (!res.ok) {
+      console.log('Alert counts not available:', res.status);
+      return;
+    }
+
+    const alerts = await res.json();  // List of AlertDTO
+    console.log('Active alerts:', alerts);
+
+    // Count alerts per ticker
+    for (const alert of alerts) {
+      const t = String(alert.ticker || '').toUpperCase();
+      alertCounts[t] = (alertCounts[t] || 0) + 1;
+    }
+  } catch (e) {
+    console.log('Could not load alert counts:', e.message);
+  }
+}
+
+// ========= Load Results Data =========
+async function loadResultsData() {
+  resultsData = {};
+  const tickers = [...new Set((positions || []).map(p => p.ticker).filter(Boolean))];
+  if (!tickers.length) return;
+
+  // Extract pure tickers (without NSE: prefix)
+  const pureTickers = tickers.map(t => extractPureTicker(t));
+
+  try {
+    const url = new URL(`${RESULTS_API_BASE}/portfolio`);
+    pureTickers.forEach(t => url.searchParams.append('tickers', t));
+
+    const res = await fetchWithAuth(url);
+    if (!res.ok) {
+      console.log('Results data not available:', res.status);
+      return;
+    }
+
+    const data = await res.json();  // { results: [...], count, tickersWithResults }
+    console.log('Portfolio results:', data);
+
+    // Store results by ticker
+    if (data.results) {
+      for (const r of data.results) {
+        const t = String(r.ticker || '').toUpperCase();
+        resultsData[t] = r;
+        // Also store with NSE: prefix for lookups
+        resultsData['NSE:' + t] = r;
+      }
+    }
+  } catch (e) {
+    console.log('Could not load results data:', e.message);
+  }
+}
+
+function getResultsForTicker(ticker) {
+  const t = String(ticker || '').toUpperCase();
+  return resultsData[t] || resultsData[extractPureTicker(t).toUpperCase()] || null;
+}
+
+// ========= Notification Bell =========
+async function loadTriggeredAlerts() {
+  try {
+    const res = await fetchWithAuth(`${ALERT_API_BASE}/triggered`);
+    if (!res.ok) {
+      console.log('Triggered alerts not available:', res.status);
+      return;
+    }
+    triggeredAlerts = await res.json();
+    console.log('Triggered alerts:', triggeredAlerts);
+    updateNotifBadge();
+    renderNotifList();
+  } catch (e) {
+    console.log('Could not load triggered alerts:', e.message);
+  }
+}
+
+function updateNotifBadge() {
+  const badge = byId('notif-badge');
+  const bellWrap = byId('notif-bell-wrap');
+  const unseenCount = triggeredAlerts.filter(a => !a.seen).length;
+  const totalTriggered = triggeredAlerts.length;
+
+  // Update badge count
+  if (unseenCount > 0) {
+    badge.textContent = unseenCount > 99 ? '99+' : unseenCount;
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Update bell icon visual state
+  bellWrap.classList.remove('has-unseen', 'no-alerts');
+  if (unseenCount > 0) {
+    bellWrap.classList.add('has-unseen');  // Animated, glowing bell
+  } else if (totalTriggered === 0) {
+    bellWrap.classList.add('no-alerts');   // Muted/normal bell
+  }
+  // Otherwise: alerts exist but all are seen - normal bell (no extra class)
+}
+
+function renderNotifList() {
+  const list = byId('notif-list');
+  if (!triggeredAlerts || triggeredAlerts.length === 0) {
+    list.innerHTML = '<div class="notif-empty">No triggered alerts</div>';
+    return;
+  }
+
+  let html = '';
+  for (const alert of triggeredAlerts) {
+    const unseenClass = alert.seen ? '' : 'unseen';
+    const typeLabel = alert.alertType === 'STOP_LOSS' ? 'Stop Loss' :
+                      alert.alertType === 'PRICE_BELOW' ? 'Price Below' : 'Price Above';
+    const triggeredTime = alert.triggeredAt ? formatTimeAgo(alert.triggeredAt) : '';
+
+    html += `
+      <div class="notif-item ${unseenClass}" onclick="viewTriggeredAlert(${alert.id})">
+        <div>
+          <span class="notif-ticker">${alert.ticker}</span>
+          <span class="notif-type">${typeLabel}</span>
+        </div>
+        <div class="notif-price">
+          Triggered at ₹${fmtINR(alert.triggeredPrice)} (target: ₹${fmtINR(alert.targetPrice)})
+        </div>
+        <div class="notif-time">${triggeredTime}</div>
+      </div>
+    `;
+  }
+  list.innerHTML = html;
+}
+
+function formatTimeAgo(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return date.toLocaleDateString();
+}
+
+function toggleNotifDropdown() {
+  const dropdown = byId('notif-dropdown');
+  notifDropdownOpen = !notifDropdownOpen;
+  dropdown.style.display = notifDropdownOpen ? 'block' : 'none';
+
+  // Refresh list when opening
+  if (notifDropdownOpen) {
+    loadTriggeredAlerts();
+  }
+}
+
+async function viewTriggeredAlert(alertId) {
+  // Mark as seen using authenticated endpoint
+  try {
+    await fetchWithAuth(`${ALERT_API_BASE}/seen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alertIds: [alertId] })
+    });
+  } catch (e) {
+    console.log('Could not mark alert as seen:', e.message);
+  }
+
+  // Update local state
+  const alert = triggeredAlerts.find(a => a.id === alertId);
+  if (alert) {
+    alert.seen = true;
+    updateNotifBadge();
+    renderNotifList();
+  }
+
+  // Could open a detail modal here if needed
+}
+
+async function markAllSeen() {
+  const alertIds = triggeredAlerts.filter(a => !a.seen).map(a => a.id);
+  if (alertIds.length === 0) return;
+
+  try {
+    await fetchWithAuth(`${ALERT_API_BASE}/seen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alertIds })
+    });
+
+    // Update local state
+    triggeredAlerts.forEach(a => a.seen = true);
+    updateNotifBadge();
+    renderNotifList();
+  } catch (e) {
+    console.log('Could not mark alerts as seen:', e.message);
+  }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const dropdown = byId('notif-dropdown');
+  const bellWrap = byId('notif-bell-wrap');
+  if (notifDropdownOpen && !dropdown.contains(e.target) && !bellWrap.contains(e.target)) {
+    notifDropdownOpen = false;
+    dropdown.style.display = 'none';
+  }
+});
+
+// ========= Alert Modal =========
+let alertModalTicker = null;
+let alertModalBuyPrice = null;
+let alertModalPositionId = null;
+let alertModalCMP = null;
+
+function openAlertModal(ticker, buyPrice, positionId) {
+  alertModalTicker = ticker;
+  alertModalBuyPrice = buyPrice;
+  alertModalPositionId = positionId;
+  alertModalCMP = computeCMP(ticker);
+
+  const pureTicker = extractPureTicker(ticker);
+
+  byId("alert-modal-title").textContent = "Create Alert for " + pureTicker;
+  byId("a-ticker").value = pureTicker;
+  byId("a-buyprice").value = buyPrice ? fmtINR(buyPrice) : "–";
+  byId("a-cmp").value = alertModalCMP ? fmtINR(alertModalCMP) : "–";
+  byId("a-type").value = "STOP_LOSS";
+  byId("a-email").value = localStorage.getItem("alert_email") || "";
+  byId("a-telegram").value = localStorage.getItem("telegram_chat_id") || "";
+
+  // Default stop-loss target = buyPrice * 0.95 (5% below)
+  const defaultTarget = buyPrice ? (buyPrice * 0.95).toFixed(2) : "";
+  byId("a-target").value = defaultTarget;
+  updateAlertTypeUI();
+
+  byId("alert-modal-backdrop").style.display = "flex";
+}
+
+function closeAlertModal() {
+  byId("alert-modal-backdrop").style.display = "none";
+}
+
+function updateAlertTypeUI() {
+  const type = byId("a-type").value;
+  const cmp = alertModalCMP;
+  const buy = alertModalBuyPrice || 0;
+  const label = byId("a-target-label");
+  const input = byId("a-target");
+
+  // Update label and default value based on type
+  if (type === "STOP_LOSS") {
+    label.textContent = "Target Price ₹";
+    input.value = buy ? (buy * 0.95).toFixed(2) : "";
+    input.step = "0.01";
+  } else if (type === "PRICE_BELOW") {
+    label.textContent = "Target Price ₹";
+    input.value = cmp ? (cmp * 0.95).toFixed(2) : "";
+    input.step = "0.01";
+  } else if (type === "PRICE_ABOVE") {
+    label.textContent = "Target Price ₹";
+    input.value = cmp ? (cmp * 1.05).toFixed(2) : "";
+    input.step = "0.01";
+  } else if (type === "PCT_BELOW") {
+    label.textContent = "% Below Current";
+    input.value = "5";
+    input.step = "0.1";
+  } else if (type === "PCT_ABOVE") {
+    label.textContent = "% Above Current";
+    input.value = "5";
+    input.step = "0.1";
+  }
+
+  updateAlertHint();
+}
+
+function updateAlertHint() {
+  const type = byId("a-type").value;
+  const target = parseFloat(byId("a-target").value) || 0;
+  const cmp = alertModalCMP;
+  const buy = alertModalBuyPrice || 0;
+
+  let hint = "";
+  let targetPrice = 0;
+
+  if (type === "STOP_LOSS" && buy > 0 && target > 0) {
+    const pct = ((buy - target) / buy * 100).toFixed(1);
+    hint = `Alert when price falls to ₹${fmtINR(target)} (${pct}% below buy price ₹${fmtINR(buy)})`;
+  } else if (type === "PRICE_BELOW" && target > 0) {
+    if (cmp) {
+      const pct = ((cmp - target) / cmp * 100).toFixed(1);
+      hint = `Alert when price falls to ₹${fmtINR(target)} (${pct}% below current)`;
+    } else {
+      hint = `Alert when price falls to ₹${fmtINR(target)}`;
+    }
+  } else if (type === "PRICE_ABOVE" && target > 0) {
+    if (cmp) {
+      const pct = ((target - cmp) / cmp * 100).toFixed(1);
+      hint = `Alert when price rises to ₹${fmtINR(target)} (${pct}% above current)`;
+    } else {
+      hint = `Alert when price rises to ₹${fmtINR(target)}`;
+    }
+  } else if (type === "PCT_BELOW" && cmp && target > 0) {
+    targetPrice = cmp * (1 - target / 100);
+    hint = `Alert when price falls to ₹${fmtINR(targetPrice)} (${target}% below ₹${fmtINR(cmp)})`;
+  } else if (type === "PCT_ABOVE" && cmp && target > 0) {
+    targetPrice = cmp * (1 + target / 100);
+    hint = `Alert when price rises to ₹${fmtINR(targetPrice)} (${target}% above ₹${fmtINR(cmp)})`;
+  }
+
+  byId("a-hint").textContent = hint;
+}
+
+async function saveAlert() {
+  const type = byId("a-type").value;
+  const inputVal = parseFloat(byId("a-target").value);
+  const email = byId("a-email").value.trim();
+  const telegramChatId = byId("a-telegram").value.trim();
+  const cmp = alertModalCMP;
+
+  if (!inputVal || inputVal <= 0) {
+    showErr("Please enter a valid value");
+    return;
+  }
+
+  // Calculate actual target price for percentage types
+  let targetPrice = inputVal;
+  let apiAlertType = type;
+
+  if (type === "PCT_BELOW") {
+    if (!cmp) {
+      showErr("Current price not available for percentage calculation");
+      return;
+    }
+    targetPrice = cmp * (1 - inputVal / 100);
+    apiAlertType = "PRICE_BELOW";  // Backend stores as PRICE_BELOW
+  } else if (type === "PCT_ABOVE") {
+    if (!cmp) {
+      showErr("Current price not available for percentage calculation");
+      return;
+    }
+    targetPrice = cmp * (1 + inputVal / 100);
+    apiAlertType = "PRICE_ABOVE";  // Backend stores as PRICE_ABOVE
+  }
+
+  // Save preferences for next time
+  if (email) localStorage.setItem("alert_email", email);
+  if (telegramChatId) localStorage.setItem("telegram_chat_id", telegramChatId);
+
+  // Build notification channels string
+  let channels = [];
+  if (email) channels.push('EMAIL');
+  if (telegramChatId) channels.push('TELEGRAM');
+  const notificationChannels = channels.length > 0 ? channels.join(',') : 'EMAIL';
+
+  try {
+    let res;
+    if (type === "STOP_LOSS") {
+      // For stop-loss, we can override the default 5% by passing target directly
+      res = await fetchWithAuth(`${ALERT_API_BASE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticker: extractPureTicker(alertModalTicker),
+          alertType: 'STOP_LOSS',
+          targetPrice: targetPrice,
+          buyPrice: alertModalBuyPrice,
+          positionId: alertModalPositionId,
+          userEmail: email || null,
+          telegramChatId: telegramChatId || null,
+          notificationChannels: notificationChannels
+        })
+      });
+    } else {
+      res = await fetchWithAuth(`${ALERT_API_BASE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticker: extractPureTicker(alertModalTicker),
+          alertType: apiAlertType,
+          targetPrice: targetPrice,
+          userEmail: email || null,
+          telegramChatId: telegramChatId || null,
+          notificationChannels: notificationChannels
+        })
+      });
+    }
+
+    if (res.ok) {
+      const alertData = await res.json();
+      console.log('Created alert:', alertData);
+      closeAlertModal();
+      await loadAlertCounts();
+      renderTable(byId("filter").value);
+      showErr(""); // Clear any error
+    } else {
+      const errText = await res.text().catch(() => "");
+      showErr(`Failed to create alert: ${res.status} ${errText}`);
+    }
+  } catch (e) {
+    console.error('Could not create alert:', e);
+    showErr(`Error: ${e.message}`);
+  }
+}
+
+// Show alerts for a ticker (fetch and display in modal)
+async function showAlerts(ticker) {
+  const pureTicker = extractPureTicker(ticker);
+  try {
+    const res = await fetchWithAuth(`${ALERT_API_BASE}/ticker/${pureTicker}`);
+    if (!res.ok) {
+      alert(`Could not load alerts for ${pureTicker}`);
+      return;
+    }
+    const alerts = await res.json();
+    if (alerts.length === 0) {
+      alert(`No active alerts for ${pureTicker}`);
+      return;
+    }
+
+    // Format alerts for display
+    let msg = `Alerts for ${pureTicker}:\n\n`;
+    alerts.forEach((a, i) => {
+      const status = a.status || 'ACTIVE';
+      const type = a.alertType || 'ALERT';
+      const target = a.targetPrice ? `₹${a.targetPrice}` : '–';
+      msg += `${i+1}. ${type} @ ${target} [${status}]\n`;
+    });
+    msg += `\nTotal: ${alerts.length} alert(s)`;
+    alert(msg);
+  } catch (e) {
+    console.error('Error loading alerts:', e);
+    alert(`Error loading alerts: ${e.message}`);
+  }
+}
+
+function extractPureTicker(ticker) {
+  if (!ticker) return '';
+  ticker = String(ticker).trim().toUpperCase();
+  if (ticker.startsWith('NSE:')) return ticker.substring(4);
+  if (ticker.startsWith('BSE:')) return ticker.substring(4);
+  return ticker;
+}
+
+// Load announcement counts for portfolio tickers (total and unseen)
+async function loadAnnouncementCounts() {
+  announcementCounts = {};
+  announcementUnseenCounts = {};
+  const tickers = [...new Set((positions || []).map(p => p.ticker).filter(Boolean))];
+  if (!tickers.length) return;
+
+  try {
+    // Load total counts
+    const url = new URL(`${ANN_API_BASE}/counts`);
+    tickers.forEach(t => url.searchParams.append('tickers', t));
+    url.searchParams.append('days', '7');  // Last 7 days
+
+    const res = await fetchWithAuth(url);
+    if (!res.ok) {
+      console.log('Announcement counts not available:', res.status);
+      return;
+    }
+
+    const counts = await res.json();  // { "RELIANCE": 2, "TCS": 0, ... }
+    console.log('Announcement counts:', counts);
+
+    for (const [ticker, count] of Object.entries(counts)) {
+      announcementCounts[ticker.toUpperCase()] = count;
+    }
+
+    // Load unseen counts
+    const unseenUrl = new URL(`${ANN_API_BASE}/unseen-counts`);
+    tickers.forEach(t => unseenUrl.searchParams.append('tickers', t));
+    unseenUrl.searchParams.append('days', '7');
+
+    const unseenRes = await fetchWithAuth(unseenUrl);
+    if (unseenRes.ok) {
+      const unseenCounts = await unseenRes.json();  // { "RELIANCE": 1, "TCS": 0, ... }
+      console.log('Unseen announcement counts:', unseenCounts);
+
+      for (const [ticker, count] of Object.entries(unseenCounts)) {
+        announcementUnseenCounts[ticker.toUpperCase()] = count;
+      }
+    }
+  } catch (e) {
+    console.log('Could not load announcement counts:', e.message);
+  }
+}
 
 function renderTable(filterText = "") {
   const tbody = byId("rows");
@@ -202,7 +733,7 @@ function renderTable(filterText = "") {
   }
 
   if (view.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="12" class="muted">No positions yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="muted">No positions yet.</td></tr>`;
     updateKPIs([]);
     return;
   }
@@ -225,6 +756,57 @@ function renderTable(filterText = "") {
     // per-row daily change value (based on current value)
     const rowDayDeltaVal = (current != null && dayPct != null) ? (current * dayPct / 100) : null;
 
+    // Announcement count for this ticker (show unseen count, badge only if unseen > 0)
+    const annCount = getAnnouncementCount(p.ticker);
+    const annUnseenCount = getAnnouncementUnseenCount(p.ticker);
+    const hasUnseen = annUnseenCount > 0;
+    const annBadgeClass = hasUnseen ? 'has-ann has-unseen' : (annCount > 0 ? 'has-ann' : 'no-ann');
+    let annBadgeHtml;
+    if (hasUnseen) {
+      // Show unseen count with highlighted badge
+      annBadgeHtml = `<span class="ann-badge ${annBadgeClass}" onclick="showAnnouncements('${p.ticker}')" title="${annUnseenCount} new announcement(s). Click to view.">
+           <span class="ann-icon">📢</span>${annUnseenCount}
+         </span>`;
+    } else if (annCount > 0) {
+      // Has announcements but all seen - show muted badge
+      annBadgeHtml = `<span class="ann-badge has-ann seen" onclick="showAnnouncements('${p.ticker}')" title="All announcements seen. Click to view.">
+           <span class="ann-icon">📢</span>
+         </span>`;
+    } else {
+      // No announcements
+      annBadgeHtml = `<span class="ann-badge no-ann">–</span>`;
+    }
+
+    // Alert count for this ticker
+    const alertCount = getAlertCount(extractPureTicker(p.ticker));
+    const alertBadgeClass = alertCount > 0 ? 'has-alert' : 'no-alert';
+    const alertBadgeHtml = alertCount > 0
+      ? `<span class="alert-badge ${alertBadgeClass}" onclick="showAlerts('${p.ticker}')" title="Click to view alerts">
+           <span class="alert-icon">🔔</span>${alertCount}
+         </span>`
+      : `<span class="alert-badge ${alertBadgeClass}" onclick="openAlertModal('${p.ticker}', ${buy}, ${p.id})" title="Click to create alert">
+           <span class="alert-icon">+</span>
+         </span>`;
+
+    // Results data for this ticker
+    const resultsInfo = getResultsForTicker(p.ticker);
+    let resultsBadgeHtml;
+    if (resultsInfo) {
+      const trend = resultsInfo.trend || '';
+      const trendClass = trend === 'UP' ? 'trend-up' : (trend === 'DOWN' ? 'trend-down' : '');
+      const patYoY = resultsInfo.patYoY;
+      const patYoYText = patYoY != null ? `PAT: ${patYoY >= 0 ? '+' : ''}${patYoY.toFixed(1)}% YoY` : '';
+      const quarterLabel = resultsInfo.quarterLabel || '';
+      const pureTicker = extractPureTicker(p.ticker);
+      resultsBadgeHtml = `<a href="results-analysis.html?ticker=${encodeURIComponent(pureTicker)}"
+                            class="results-badge has-results ${trendClass}"
+                            title="${quarterLabel}: ${patYoYText}">
+                            <span class="results-icon">📊</span>${quarterLabel}
+                          </a>`;
+    } else {
+      resultsBadgeHtml = `<span class="results-badge no-results" title="No results available">-</span>`;
+    }
+
     enriched.push({ invested, current, pl, plp, rowDayDeltaVal, currentForWeight: current, dayPct });
 
     rowsHtml += `
@@ -240,10 +822,14 @@ function renderTable(filterText = "") {
         <td class="num" style="color:${(pl ?? 0) >= 0 ? 'green':'red'}">${pl != null ? fmtINR(pl) : "–"}</td>
         <td class="num" style="color:${(plp ?? 0) >= 0 ? 'green':'red'}">${plp != null ? fmtINR(plp) + "%" : "–"}</td>
         <td class="num" style="color:${(dayPct ?? 0) >= 0 ? 'green':'red'}">${dayPct != null ? fmtINR(dayPct) + "%" : "–"}</td>
+        <td>${annBadgeHtml}</td>
+        <td>${alertBadgeHtml}</td>
+        <td>${resultsBadgeHtml}</td>
         <td>${p.notes ? p.notes.replace(/</g,"&lt;") : ""}</td>
         <td class="actions">
-          <button class="btn btn-outline" onclick="openEdit(${p.id})">Edit</button>
-          <button class="btn btn-danger" onclick="removePos(${p.id})">Delete</button>
+          <button class="btn btn-outline" onclick="openAddShares('${p.ticker}', ${qty}, ${buy})" title="Add more shares">+Add</button>
+          <button class="btn" onclick="openSellModal('${p.ticker}', ${qty}, ${buy}, ${p.id})" style="background:#059669;color:#fff;" title="Sell shares">Sell</button>
+          <button class="btn btn-outline" onclick="openEdit(${p.id})" style="padding:6px 8px;" title="Edit position">✏️</button>
         </td>
       </tr>
     `;
@@ -259,8 +845,13 @@ function updateKPIs(enriched) {
   let totDayDeltaVal = 0, totCurrentForWeight = 0;
 
   enriched.forEach(e => {
-    totInvested += e.invested || 0;
-    if (e.current !== null) { totCurrent += e.current; haveCurrent = true; }
+    // Only include in totals if we have a valid current value (CMP exists)
+    // This ensures P&L calculation is consistent with analytics page
+    if (e.current !== null) {
+      totInvested += e.invested || 0;
+      totCurrent += e.current;
+      haveCurrent = true;
+    }
 
     // accumulate daily delta and weight
     if (e.rowDayDeltaVal !== null) totDayDeltaVal += e.rowDayDeltaVal;
@@ -327,7 +918,7 @@ function closeModal() { byId("modal-backdrop").style.display = "none"; }
 
 async function resolveTicker(query){
   const url = `/portfolio-service/api/portfolio/quotes/resolve?query=${encodeURIComponent(query)}`;
-  const res = await fetch(url, { headers: authHeader() });
+  const res = await fetchWithAuth(url);
   if (!res.ok) throw new Error("Unknown ticker");
   return res.json(); // {ticker,name}
 }
@@ -365,9 +956,9 @@ async function savePosition() {
     ? `${API_BASE}/positions/${editingId}`
     : `${API_BASE}/positions`;
 
-  const res = await fetch(url, {
+  const res = await fetchWithAuth(url, {
     method,
-    headers: authHeader(),
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
 
@@ -393,7 +984,7 @@ function authHeader() {
 
 async function removePos(id) {
   if (!confirm("Delete this position?")) return;
-  const res = await fetch(`${API_BASE}/positions/${id}`, { method: "DELETE", headers: authHeader() });
+  const res = await fetchWithAuth(`${API_BASE}/positions/${id}`, { method: "DELETE" });
   if (!res.ok) {
     showErr(`Delete failed (${res.status})`);
     return;
@@ -408,7 +999,13 @@ let aiOnce = false;
 async function refresh() {
   try {
     await loadPositions();
-    await loadPrices(); // fills cmpMap / dayPctMap
+    await Promise.all([
+      loadPrices(),           // fills cmpMap / dayPctMap
+      loadAnnouncementCounts(), // fills announcementCounts
+      loadAlertCounts(),       // fills alertCounts
+      loadTriggeredAlerts(),   // fills triggeredAlerts for notification bell
+      loadResultsData()        // fills resultsData for results column
+    ]);
     renderTable(byId("filter").value);
 
     // ⬇️ fetch the summary after data is ready
@@ -416,17 +1013,19 @@ async function refresh() {
   } catch (e) {
     console.error(e);
     byId("rows").innerHTML =
-      `<tr><td colspan="12" class="muted">Failed to load portfolio.</td></tr>`;
+      `<tr><td colspan="16" class="muted">Failed to load portfolio.</td></tr>`;
     byId('ai-summary-wrap').style.display = 'none';
   }
 }
 
+// Show announcements for a ticker (opens announcements page)
+function showAnnouncements(ticker) {
+  window.location.href = `announcements.html?ticker=${encodeURIComponent(ticker)}`;
+}
+
 async function loadAiSummary() {
   try {
-    const res = await fetch(`/portfolio-service/api/portfolio/ai-summary`, {
-      headers: authHeaderGET(),
-      cache: 'no-store'
-    });
+    const res = await fetchWithAuth(`/portfolio-service/api/portfolio/ai-summary`);
     if (!res.ok) {
       // hide if endpoint not available / 401 during dev etc.
       byId('ai-summary-wrap').style.display = 'none';
@@ -470,14 +1069,460 @@ byId("btn-add").addEventListener("click", openCreate);
 byId("m-cancel").addEventListener("click", closeModal);
 byId("m-save").addEventListener("click", () => savePosition().catch(err => showErr(err.message)));
 byId("apply-filter").addEventListener("click", () => renderTable(byId("filter").value));
-byId("logout-btn").addEventListener("click", () => {
+byId("logout-btn").addEventListener("click", async () => {
+  const refreshToken = localStorage.getItem("refresh_token");
+  if (refreshToken) {
+    try {
+      await fetch("/oauth-service/token/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: refreshToken })
+      });
+    } catch (e) { console.log("Token revoke failed:", e); }
+  }
   localStorage.removeItem(tokenKey);
+  localStorage.removeItem("refresh_token");
   location.href = "index.html";
 });
 
+// Alert modal events
+byId("a-cancel").addEventListener("click", closeAlertModal);
+byId("a-save").addEventListener("click", () => saveAlert().catch(err => showErr(err.message)));
+byId("a-type").addEventListener("change", updateAlertTypeUI);  // updates label, default value, and hint
+byId("a-target").addEventListener("input", updateAlertHint);
+
+// ========= Sell Modal =========
+let sellModalTicker = null;
+let sellModalQty = 0;
+let sellModalBuyPrice = 0;
+let sellModalPositionId = null;
+
+function openSellModal(ticker, availableQty, buyPrice, positionId) {
+  sellModalTicker = ticker;
+  sellModalQty = availableQty;
+  sellModalBuyPrice = buyPrice;
+  sellModalPositionId = positionId;
+
+  const pureTicker = extractPureTicker(ticker);
+  const cmp = computeCMP(ticker);
+
+  byId("sell-modal-title").textContent = "Sell " + pureTicker;
+  byId("s-ticker").value = pureTicker;
+  byId("s-available-qty").value = availableQty;
+  byId("s-buy-price").value = fmtINR(buyPrice);
+  byId("s-cmp").value = cmp ? fmtINR(cmp) : "–";
+
+  // Calculate unrealized P&L
+  if (cmp) {
+    const unrealizedPnl = (cmp - buyPrice) * availableQty;
+    const unrealizedPct = buyPrice > 0 ? ((cmp - buyPrice) / buyPrice * 100) : 0;
+    byId("s-unrealized-pnl").value = `₹${fmtINR(unrealizedPnl)} (${unrealizedPct >= 0 ? '+' : ''}${fmtINR(unrealizedPct)}%)`;
+    byId("s-unrealized-pnl").style.color = unrealizedPnl >= 0 ? 'green' : 'red';
+  } else {
+    byId("s-unrealized-pnl").value = "–";
+  }
+
+  // Default values
+  byId("s-qty").value = "";
+  byId("s-sell-price").value = cmp ? cmp.toFixed(2) : "";
+  byId("s-date").value = new Date().toISOString().split('T')[0];
+  byId("s-notes").value = "";
+  byId("s-realized-pnl").value = "";
+
+  byId("sell-modal-backdrop").style.display = "flex";
+}
+
+function closeSellModal() {
+  byId("sell-modal-backdrop").style.display = "none";
+}
+
+function updateSellPnlEstimate() {
+  const qty = parseInt(byId("s-qty").value) || 0;
+  const sellPrice = parseFloat(byId("s-sell-price").value) || 0;
+
+  if (qty > 0 && sellPrice > 0 && sellModalBuyPrice > 0) {
+    const realizedPnl = (sellPrice - sellModalBuyPrice) * qty;
+    const pct = (sellPrice - sellModalBuyPrice) / sellModalBuyPrice * 100;
+    byId("s-realized-pnl").value = `₹${fmtINR(realizedPnl)} (${pct >= 0 ? '+' : ''}${fmtINR(pct)}%)`;
+    byId("s-realized-pnl").style.color = realizedPnl >= 0 ? 'green' : 'red';
+  } else {
+    byId("s-realized-pnl").value = "";
+  }
+}
+
+function sellAll() {
+  byId("s-qty").value = sellModalQty;
+  updateSellPnlEstimate();
+}
+
+async function confirmSell() {
+  const qty = parseInt(byId("s-qty").value);
+  const sellPrice = parseFloat(byId("s-sell-price").value);
+  const sellDate = byId("s-date").value || null;
+  const notes = byId("s-notes").value || null;
+
+  if (!qty || qty <= 0) {
+    showErr("Please enter quantity to sell");
+    return;
+  }
+  if (qty > sellModalQty) {
+    showErr(`Cannot sell ${qty} shares. Only ${sellModalQty} available.`);
+    return;
+  }
+  if (!sellPrice || sellPrice <= 0) {
+    showErr("Please enter sell price");
+    return;
+  }
+
+  const body = {
+    ticker: extractPureTicker(sellModalTicker),
+    quantity: qty,
+    sellPrice: sellPrice,
+    sellDate: sellDate,
+    notes: notes
+  };
+
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/transactions/sell`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      const tx = await res.json();
+      console.log('Sell transaction:', tx);
+      closeSellModal();
+      showErr(""); // Clear any error
+      await refresh();
+
+      // Show success message
+      const pnl = tx.realizedPnl || 0;
+      alert(`Sold ${qty} shares of ${extractPureTicker(sellModalTicker)}.\nRealized P&L: ₹${fmtINR(pnl)}`);
+    } else {
+      const errText = await res.text().catch(() => "");
+      showErr(`Sell failed: ${res.status} ${errText}`);
+    }
+  } catch (e) {
+    console.error('Sell error:', e);
+    showErr(`Error: ${e.message}`);
+  }
+}
+
+// ========= Add Shares Modal =========
+let addSharesTicker = null;
+let addSharesCurrentQty = 0;
+let addSharesAvgPrice = 0;
+
+function openAddShares(ticker, currentQty, avgPrice) {
+  addSharesTicker = ticker;
+  addSharesCurrentQty = currentQty;
+  addSharesAvgPrice = avgPrice;
+
+  const pureTicker = extractPureTicker(ticker);
+  const cmp = computeCMP(ticker);
+
+  byId("add-shares-modal-title").textContent = "Add Shares - " + pureTicker;
+  byId("as-ticker").value = pureTicker;
+  byId("as-current-qty").value = currentQty;
+  byId("as-avg-price").value = fmtINR(avgPrice);
+  byId("as-cmp").value = cmp ? fmtINR(cmp) : "–";
+  byId("as-new-avg").value = "";
+
+  // Default values
+  byId("as-qty").value = "";
+  byId("as-price").value = cmp ? cmp.toFixed(2) : "";
+  byId("as-date").value = new Date().toISOString().split('T')[0];
+  byId("as-notes").value = "";
+
+  byId("add-shares-modal-backdrop").style.display = "flex";
+}
+
+function closeAddSharesModal() {
+  byId("add-shares-modal-backdrop").style.display = "none";
+}
+
+function updateNewAvgPrice() {
+  const addQty = parseInt(byId("as-qty").value) || 0;
+  const addPrice = parseFloat(byId("as-price").value) || 0;
+
+  if (addQty > 0 && addPrice > 0) {
+    const oldValue = addSharesAvgPrice * addSharesCurrentQty;
+    const newValue = addPrice * addQty;
+    const totalQty = addSharesCurrentQty + addQty;
+    const newAvg = (oldValue + newValue) / totalQty;
+    byId("as-new-avg").value = `₹${fmtINR(newAvg)} (${totalQty} shares)`;
+  } else {
+    byId("as-new-avg").value = "";
+  }
+}
+
+async function confirmAddShares() {
+  const qty = parseInt(byId("as-qty").value);
+  const buyPrice = parseFloat(byId("as-price").value);
+  const buyDate = byId("as-date").value || null;
+  const notes = byId("as-notes").value || null;
+
+  if (!qty || qty <= 0) {
+    showErr("Please enter quantity to add");
+    return;
+  }
+  if (!buyPrice || buyPrice <= 0) {
+    showErr("Please enter buy price");
+    return;
+  }
+
+  const body = {
+    ticker: extractPureTicker(addSharesTicker),
+    quantity: qty,
+    buyPrice: buyPrice,
+    buyDate: buyDate,
+    notes: notes
+  };
+
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/transactions/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (res.ok) {
+      const tx = await res.json();
+      console.log('Add shares transaction:', tx);
+      closeAddSharesModal();
+      showErr(""); // Clear any error
+      await refresh();
+    } else {
+      const errText = await res.text().catch(() => "");
+      showErr(`Add failed: ${res.status} ${errText}`);
+    }
+  } catch (e) {
+    console.error('Add shares error:', e);
+    showErr(`Error: ${e.message}`);
+  }
+}
+
+// Wire sell modal events
+byId("s-cancel").addEventListener("click", closeSellModal);
+byId("s-save").addEventListener("click", () => confirmSell().catch(err => showErr(err.message)));
+byId("s-sell-all").addEventListener("click", sellAll);
+byId("s-qty").addEventListener("input", updateSellPnlEstimate);
+byId("s-sell-price").addEventListener("input", updateSellPnlEstimate);
+
+// Wire add shares modal events
+byId("as-cancel").addEventListener("click", closeAddSharesModal);
+byId("as-save").addEventListener("click", () => confirmAddShares().catch(err => showErr(err.message)));
+byId("as-qty").addEventListener("input", updateNewAvgPrice);
+byId("as-price").addEventListener("input", updateNewAvgPrice);
+
+// ========= Zerodha Import =========
+let parsedImportData = [];
+
+function openImportModal() {
+  byId("import-data").value = "";
+  byId("import-file").value = "";
+  byId("import-preview").style.display = "none";
+  byId("import-error").textContent = "";
+  byId("import-save").disabled = true;
+  parsedImportData = [];
+  byId("import-modal-backdrop").style.display = "flex";
+}
+
+function closeImportModal() {
+  byId("import-modal-backdrop").style.display = "none";
+}
+
+// Parse Zerodha data (CSV or tab-separated)
+function parseZerodhaData() {
+  const textarea = byId("import-data").value.trim();
+  const fileInput = byId("import-file");
+
+  if (fileInput.files.length > 0) {
+    // Read file
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const content = e.target.result;
+      processImportData(content);
+    };
+    reader.readAsText(file);
+  } else if (textarea) {
+    processImportData(textarea);
+  } else {
+    byId("import-error").textContent = "Please paste data or upload a file.";
+  }
+}
+
+function processImportData(content) {
+  byId("import-error").textContent = "";
+  parsedImportData = [];
+
+  // Split by lines
+  const lines = content.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2) {
+    byId("import-error").textContent = "No data found. Need header + at least 1 row.";
+    return;
+  }
+
+  // Detect separator (tab or comma)
+  const firstLine = lines[0];
+  const separator = firstLine.includes('\t') ? '\t' : ',';
+
+  // Parse header
+  const headers = lines[0].split(separator).map(h => h.trim().toLowerCase());
+  console.log('Headers:', headers);
+
+  // Find column indices
+  const instrumentIdx = headers.findIndex(h => h.includes('instrument') || h.includes('ticker') || h.includes('symbol'));
+  const qtyIdx = headers.findIndex(h => h.includes('qty') || h.includes('quantity'));
+  const avgCostIdx = headers.findIndex(h => h.includes('avg') && h.includes('cost') || h === 'avg. cost' || h === 'avg cost' || h === 'buy price');
+
+  if (instrumentIdx === -1) {
+    byId("import-error").textContent = "Could not find 'Instrument' column in headers.";
+    return;
+  }
+  if (qtyIdx === -1) {
+    byId("import-error").textContent = "Could not find 'Qty' column in headers.";
+    return;
+  }
+  if (avgCostIdx === -1) {
+    byId("import-error").textContent = "Could not find 'Avg. cost' column in headers.";
+    return;
+  }
+
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(separator).map(c => c.trim());
+    if (cols.length <= Math.max(instrumentIdx, qtyIdx, avgCostIdx)) continue;
+
+    let instrument = cols[instrumentIdx];
+    const qty = parseFloat(cols[qtyIdx].replace(/,/g, '')) || 0;
+    const avgCost = parseFloat(cols[avgCostIdx].replace(/,/g, '')) || 0;
+
+    if (!instrument || qty <= 0 || avgCost <= 0) continue;
+
+    // Clean up ticker thoroughly
+    let ticker = instrument.trim().toUpperCase();
+    // Remove all surrounding quotes (handles multiple layers like ""TICKER"")
+    ticker = ticker.replace(/^["']+|["']+$/g, '');
+    // Remove any remaining whitespace after quote removal
+    ticker = ticker.trim();
+    // Remove exchange suffixes like -EQ, -BE, -BL, -N1, etc.
+    ticker = ticker.replace(/-(EQ|BE|BL|N1|SM|ST)$/i, '');
+    // Add NSE: prefix for Indian stocks if not present
+    if (!ticker.includes(':')) {
+      ticker = 'NSE:' + ticker;
+    }
+
+    parsedImportData.push({
+      ticker: ticker,
+      quantity: qty,
+      buyPrice: avgCost
+    });
+  }
+
+  if (parsedImportData.length === 0) {
+    byId("import-error").textContent = "No valid positions found in the data.";
+    return;
+  }
+
+  // Show preview
+  byId("import-count").textContent = parsedImportData.length;
+  const previewRows = byId("import-preview-rows");
+  previewRows.innerHTML = parsedImportData.map(p => `
+    <tr>
+      <td>${p.ticker}</td>
+      <td>${p.quantity}</td>
+      <td>₹${fmtINR(p.buyPrice)}</td>
+    </tr>
+  `).join('');
+
+  byId("import-preview").style.display = "block";
+  byId("import-save").disabled = false;
+}
+
+async function importPositions() {
+  if (parsedImportData.length === 0) {
+    byId("import-error").textContent = "No data to import.";
+    return;
+  }
+
+  byId("import-save").disabled = true;
+  byId("import-save").textContent = "Importing...";
+  byId("import-error").textContent = "";
+
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/positions/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ positions: parsedImportData })
+    });
+
+    if (res.ok) {
+      const result = await res.json();
+      console.log('Import result:', result);
+      closeImportModal();
+      await refresh();
+      alert(`Successfully imported ${result.imported || parsedImportData.length} positions!`);
+    } else {
+      const errText = await res.text().catch(() => "");
+      byId("import-error").textContent = `Import failed: ${res.status} ${errText}`;
+      byId("import-save").disabled = false;
+    }
+  } catch (e) {
+    console.error('Import error:', e);
+    byId("import-error").textContent = `Error: ${e.message}`;
+    byId("import-save").disabled = false;
+  }
+
+  byId("import-save").textContent = "Import All";
+}
+
+// Wire import modal events
+byId("btn-import").addEventListener("click", openImportModal);
+byId("import-cancel").addEventListener("click", closeImportModal);
+byId("import-parse").addEventListener("click", parseZerodhaData);
+byId("import-save").addEventListener("click", importPositions);
+byId("import-file").addEventListener("change", parseZerodhaData);
+
+// Refresh prices button
+byId("btn-refresh").addEventListener("click", refreshPrices);
+
+async function refreshPrices() {
+  const btn = byId("btn-refresh");
+  const originalText = btn.textContent;
+  btn.textContent = "⏳ Loading...";
+  btn.disabled = true;
+
+  try {
+    await loadPrices();
+    renderTable(byId("filter").value);
+    showErr("");
+    // Brief success indication
+    btn.textContent = "✅ Updated!";
+    setTimeout(() => { btn.textContent = originalText; }, 1500);
+  } catch (e) {
+    console.error("Refresh prices error:", e);
+    showErr("Failed to refresh prices");
+    btn.textContent = originalText;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
 /* ---------- boot ---------- */
-(function init(){
-  const token = localStorage.getItem(tokenKey);
-  if (!token) { location.href = "index.html"; return; }
-  refresh();
-})();
+// Wait for token-utils.js to handle token validation/refresh, then load portfolio
+document.addEventListener("DOMContentLoaded", function() {
+  // Give token-utils.js a moment to initialize and potentially refresh token
+  setTimeout(function() {
+    const token = localStorage.getItem(tokenKey);
+    if (!token) {
+      console.log("Portfolio: No token after init, redirecting to login");
+      location.href = "index.html";
+      return;
+    }
+    refresh();
+  }, 100);  // Small delay to let token-utils init complete
+});

@@ -1,0 +1,56 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Java services - each log file gets a service label
+  - job_name: java-services
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: stockanalytics
+          __path__: /var/log/app/*.log
+
+    pipeline_stages:
+      # Extract service name from filename (e.g., gateway-service.log -> gateway-service)
+      - match:
+          selector: '{job="stockanalytics"}'
+          stages:
+            - regex:
+                source: filename
+                expression: '.*/(?P<service>[a-z]+-?[a-z]+-?service)\.log'
+            - labels:
+                service:
+
+      # Parse log level from Spring Boot log format
+      - regex:
+          expression: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+(?P<level>\w+)\s+'
+      - labels:
+          level:
+
+      # Extract traceId from distributed tracing log format [traceId,spanId]
+      - regex:
+          expression: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\w+\s+\[(?P<traceId>[a-f0-9]+)?,'
+      - labels:
+          traceId:
+
+  # Python results service
+  - job_name: python-service
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: stockanalytics
+          service: results-python
+          __path__: /var/log/app/results-python.log
+
+    pipeline_stages:
+      - regex:
+          expression: '(?P<level>INFO|WARNING|ERROR|DEBUG|CRITICAL)'
+      - labels:
+          level:

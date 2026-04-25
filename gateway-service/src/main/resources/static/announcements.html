@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Announcements</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
+    <style>
+        :root { --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --soft:#eef2ff; --border:#e5e7eb; --primary:#2563eb; }
+        body{ margin:0; font-family:Segoe UI, Arial, sans-serif; background:#f9fafb; color:#111827; }
+        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; position:sticky; top:0; z-index:100; }
+        .brand{ font-weight:700; letter-spacing:.3px; }
+        .links a{ color:#cbd5e1; text-decoration:none; padding:8px 10px; border-radius:8px; margin-left:8px; }
+        .links a.active, .links a:hover{ color:#fff; background:rgba(255,255,255,.1); }
+        .wrap{ padding:20px; max-width:1000px; margin:0 auto; }
+
+        .header-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+        .ticker-badge { background:#2563eb; color:white; padding:6px 14px; border-radius:8px; font-weight:700; font-size:18px; }
+        .back-link { color:var(--primary); text-decoration:none; font-weight:600; }
+        .back-link:hover { text-decoration:underline; }
+
+        .search-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,.05);
+        }
+        .search-box h3 { margin: 0 0 12px 0; font-size: 16px; }
+        .search-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .search-row input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .search-row select {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .btn-search {
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .btn-search:hover { background: #1d4ed8; }
+
+        .ann-card {
+            background:var(--card);
+            border:1px solid var(--border);
+            border-radius:10px;
+            padding:16px;
+            margin-bottom:12px;
+            box-shadow:0 1px 3px rgba(0,0,0,.05);
+            transition: all 0.2s;
+        }
+        .ann-card:hover { box-shadow:0 2px 8px rgba(0,0,0,.1); }
+
+        /* Unseen announcement styling */
+        .ann-card.unseen {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        .ann-card.seen {
+            opacity: 0.75;
+        }
+        .unseen-badge {
+            display: inline-block;
+            background: #f59e0b;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+        .btn-mark-read {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .btn-mark-read:hover { background: #059669; }
+        .btn-mark-all {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .btn-mark-all:hover { background: #4f46e5; }
+        .ann-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+        .ann-category {
+            display:inline-block;
+            padding:3px 8px;
+            border-radius:6px;
+            font-size:11px;
+            font-weight:600;
+            background:#fef3c7;
+            color:#92400e;
+        }
+        .ann-date { font-size:12px; color:var(--muted); }
+        .ann-subject { font-size:14px; line-height:1.5; margin-bottom:10px; }
+        .ann-company { font-size:13px; color:var(--muted); margin-bottom:8px; }
+        .ann-footer { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+        .btn-pdf {
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            padding:6px 12px;
+            background:#ef4444;
+            color:white;
+            border-radius:6px;
+            text-decoration:none;
+            font-size:12px;
+            font-weight:600;
+        }
+        .btn-pdf:hover { background:#dc2626; }
+        .scrip-code { font-size:11px; color:var(--muted); }
+
+        .loading { text-align:center; padding:40px; color:var(--muted); }
+        .empty { text-align:center; padding:40px; color:var(--muted); }
+        .error { text-align:center; padding:40px; color:#ef4444; }
+
+        .results-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+        .results-count { font-size:14px; color:var(--muted); }
+
+        /* Tabs */
+        .tabs { display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border); }
+        .tab-btn {
+            padding:12px 24px;
+            background:none;
+            border:none;
+            cursor:pointer;
+            font-size:14px;
+            font-weight:600;
+            color:var(--muted);
+            border-bottom:2px solid transparent;
+            margin-bottom:-2px;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color:var(--primary); }
+        .tab-btn.active { color:var(--primary); border-bottom-color:var(--primary); }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
+
+        /* AI Summary styles */
+        .ai-summary-card {
+            background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border:1px solid #bae6fd;
+            border-radius:12px;
+            padding:20px;
+            margin-bottom:16px;
+        }
+        .ai-summary-header {
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-bottom:12px;
+        }
+        .ai-icon { font-size:24px; }
+        .ai-title { font-weight:700; font-size:16px; color:#0369a1; }
+        .ai-badge {
+            background:#0ea5e9;
+            color:white;
+            font-size:10px;
+            padding:2px 8px;
+            border-radius:10px;
+            font-weight:600;
+        }
+        .ai-summary-text {
+            font-size:14px;
+            line-height:1.7;
+            color:#1e40af;
+            white-space:pre-wrap;
+        }
+        .ai-loading {
+            text-align:center;
+            padding:40px;
+            color:#0369a1;
+        }
+        .ai-unavailable {
+            text-align:center;
+            padding:30px;
+            color:var(--muted);
+            background:#f9fafb;
+            border-radius:10px;
+            border:1px dashed var(--border);
+        }
+
+        /* Relevance badge */
+        .relevance-badge {
+            display:inline-block;
+            padding:3px 8px;
+            border-radius:6px;
+            font-size:11px;
+            font-weight:600;
+            margin-left:8px;
+        }
+        .relevance-high { background:#dcfce7; color:#166534; }
+        .relevance-medium { background:#fef3c7; color:#92400e; }
+        .relevance-low { background:#fee2e2; color:#991b1b; }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #2563eb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .btn-search:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .live-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+        .db-badge {
+            display: inline-block;
+            background: #6366f1;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .pagination button {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .pagination button:hover:not(:disabled) { background: #f3f4f6; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination .page-info { font-size: 14px; color: var(--muted); }
+
+        /* Autocomplete styles */
+        .autocomplete-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+        }
+        .autocomplete-wrapper input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+        .autocomplete-dropdown.show { display: block; }
+        .autocomplete-item {
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .autocomplete-item:hover, .autocomplete-item.selected {
+            background: #f0f9ff;
+        }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-company {
+            font-weight: 600;
+            color: #111827;
+        }
+        .autocomplete-ticker {
+            font-size: 12px;
+            color: var(--muted);
+            margin-left: 8px;
+        }
+        .autocomplete-scrip {
+            font-size: 11px;
+            color: #6366f1;
+            display: block;
+            margin-top: 2px;
+        }
+        .autocomplete-hint {
+            padding: 10px 14px;
+            color: var(--muted);
+            font-size: 13px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html" class="active">Announcements</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html">Health</a>
+    </div>
+</div>
+
+<div class="wrap">
+    <div class="header-row">
+        <div>
+            <a href="portfolio.html" class="back-link">&larr; Back to Portfolio</a>
+            <h2 style="margin:8px 0">Corporate Announcements</h2>
+        </div>
+        <div id="ticker-badge"></div>
+    </div>
+
+    <!-- Search Box -->
+    <div class="search-box">
+        <h3>Search Announcements (Live from BSE)</h3>
+        <div class="search-row">
+            <div class="autocomplete-wrapper">
+                <input type="text" id="ticker-input" placeholder="Type company name or ticker (e.g., Tejas, RELIANCE)" autocomplete="off" />
+                <div class="autocomplete-dropdown" id="autocomplete-dropdown"></div>
+            </div>
+            <select id="days-filter">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+            </select>
+            <button class="btn-search" id="btn-search" onclick="searchAnnouncements()">Search</button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabs-container" style="display:none;">
+        <button class="tab-btn active" data-tab="announcements">Announcements</button>
+        <button class="tab-btn" data-tab="ai-summary">AI Summary</button>
+    </div>
+
+    <!-- Announcements Tab -->
+    <div id="tab-announcements" class="tab-content active">
+        <div id="content">
+            <div class="empty">Enter a ticker symbol above to search for announcements.</div>
+        </div>
+    </div>
+
+    <!-- AI Summary Tab -->
+    <div id="tab-ai-summary" class="tab-content">
+        <div id="ai-content">
+            <div class="ai-unavailable">Search for a ticker to see AI-generated summary.</div>
+        </div>
+    </div>
+</div>
+
+<script src="token-utils.js"></script>
+<script>
+const tokenKey = "access_token";
+
+// Use authenticated endpoint if token exists, otherwise fall back to test endpoint
+function getAnnApiBase() {
+    const token = localStorage.getItem(tokenKey);
+    if (token) {
+        return window.location.hostname === "localhost"
+            ? "http://localhost:8082/announcement-service/api/announcements"  // via gateway
+            : `${window.location.origin}/announcement-service/api/announcements`;
+    }
+    return window.location.hostname === "localhost"
+        ? "http://localhost:8092/api/test/announcements"  // Test endpoints (no auth) - port 8092
+        : `${window.location.origin}/announcement-service/api/test/announcements`;
+}
+
+// Test endpoint for live search (doesn't require auth)
+const ANN_TEST_BASE = window.location.hostname === "localhost"
+    ? "http://localhost:8092/api/test"  // port 8092
+    : `${window.location.origin}/announcement-service/api/test`;
+
+// Reporting service for stock search (autocomplete) - via gateway
+const REPORTING_API_BASE = window.location.hostname === "localhost"
+    ? "http://localhost:8082/reporting-service/api"
+    : `${window.location.origin}/reporting-service/api`;
+
+let currentTicker = null;
+let currentAnnouncements = [];
+let currentPage = 0;
+let totalPages = 0;
+let isLiveSearch = false;
+let selectedCompany = null;
+let autocompleteTimeout = null;
+let autocompleteResults = [];
+
+function getUrlParam(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    // Format as dd-MM-yyyy HH:mm
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
+}
+
+// Format broadcast date string (e.g., "13 Dec 2024 15:30:00") to dd-MM-yyyy HH:mm
+function formatBroadcastDate(broadcastStr, fallbackDate) {
+    if (broadcastStr) {
+        // Parse BSE format "13 Dec 2024 15:30:00" and convert to dd-MM-yyyy HH:mm
+        try {
+            const d = new Date(broadcastStr);
+            if (!isNaN(d.getTime())) {
+                return formatDate(d);
+            }
+            // If parsing fails, return as-is
+            return broadcastStr;
+        } catch (e) {
+            return broadcastStr;
+        }
+    }
+    // Fallback to announcementDate
+    return formatDate(fallbackDate);
+}
+
+// Parse broadcast date for sorting (returns timestamp for comparison)
+function parseBroadcastDateForSort(ann) {
+    // Try broadcastDateTime first (e.g., "13 Dec 2024 15:30:00")
+    if (ann.broadcastDateTime) {
+        try {
+            const d = new Date(ann.broadcastDateTime);
+            if (!isNaN(d.getTime())) {
+                return d.getTime();
+            }
+        } catch (e) {}
+    }
+    // Fallback to announcementDate
+    if (ann.announcementDate) {
+        try {
+            const d = new Date(ann.announcementDate);
+            if (!isNaN(d.getTime())) {
+                return d.getTime();
+            }
+        } catch (e) {}
+    }
+    return 0;
+}
+
+// Sort announcements by date (most recent first)
+function sortAnnouncementsByDate(announcements) {
+    return announcements.sort((a, b) => {
+        const timeA = parseBroadcastDateForSort(a);
+        const timeB = parseBroadcastDateForSort(b);
+        return timeB - timeA; // Descending (most recent first)
+    });
+}
+
+// Extract pure ticker from "NSE:RELIANCE" format
+function extractPureTicker(ticker) {
+    if (!ticker) return '';
+    ticker = ticker.trim().toUpperCase();
+    if (ticker.startsWith('NSE:')) return ticker.substring(4);
+    if (ticker.startsWith('BSE:')) return ticker.substring(4);
+    return ticker;
+}
+
+function setLoading(loading) {
+    const btn = document.getElementById('btn-search');
+    const input = document.getElementById('ticker-input');
+    if (loading) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>Fetching...';
+        input.disabled = true;
+    } else {
+        btn.disabled = false;
+        btn.innerHTML = 'Search';
+        input.disabled = false;
+    }
+}
+
+// Tab switching
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.toggle('active', content.id === `tab-${tabName}`);
+    });
+    // Load AI summary if switching to that tab
+    if (tabName === 'ai-summary' && currentTicker) {
+        loadAiSummary(currentTicker);
+    }
+}
+
+// Initialize tab click handlers
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+function searchAnnouncements() {
+    const rawTicker = document.getElementById('ticker-input').value.trim();
+    if (!rawTicker) {
+        alert('Please enter a ticker symbol or company name');
+        return;
+    }
+
+    // If a stock was selected from autocomplete, use its ticker
+    let ticker;
+    if (selectedCompany && selectedCompany.ticker) {
+        // Remove NSE: prefix if present
+        ticker = selectedCompany.ticker.replace('NSE:', '');
+    } else {
+        ticker = extractPureTicker(rawTicker);
+    }
+
+    // Update URL without reloading
+    const newUrl = `${window.location.pathname}?ticker=${encodeURIComponent(ticker)}`;
+    window.history.pushState({}, '', newUrl);
+    loadAnnouncements(ticker);
+}
+
+async function loadAnnouncements(ticker) {
+    const days = document.getElementById('days-filter').value;
+    const content = document.getElementById('content');
+
+    if (!ticker) {
+        content.innerHTML = '<div class="empty">Enter a ticker symbol above to search for announcements.</div>';
+        document.getElementById('tabs-container').style.display = 'none';
+        return;
+    }
+
+    currentTicker = ticker;
+
+    // Update header
+    document.getElementById('ticker-badge').innerHTML = `<span class="ticker-badge">${ticker}</span>`;
+
+    // Show tabs
+    document.getElementById('tabs-container').style.display = 'flex';
+
+    // Show loading state
+    setLoading(true);
+    content.innerHTML = '<div class="loading"><span class="spinner"></span>Fetching live announcements from BSE...</div>';
+
+    // Reset AI summary tab
+    document.getElementById('ai-content').innerHTML = '<div class="ai-loading"><span class="spinner"></span>AI summary will load when you switch to this tab...</div>';
+
+    try {
+        // Use LIVE endpoint - fetches directly from BSE API
+        // Use test endpoint for live search (no auth required for fetching)
+        const url = `${ANN_TEST_BASE}/announcements/live?ticker=${encodeURIComponent(ticker)}&days=${days}`;
+        const res = await fetch(url);
+
+        if (!res.ok) {
+            throw new Error(`Failed to load (${res.status})`);
+        }
+
+        let announcements = await res.json();
+
+        // Sort by broadcastDateTime (most recent first)
+        announcements = sortAnnouncementsByDate(announcements);
+        currentAnnouncements = announcements;
+
+        if (!announcements || announcements.length === 0) {
+            content.innerHTML = `<div class="empty">No announcements found for <strong>${ticker}</strong> in the last ${days} days.</div>`;
+            return;
+        }
+
+        // Render with seen/unseen styling
+        renderAnnouncements(announcements);
+
+    } catch (e) {
+        console.error(e);
+        content.innerHTML = `<div class="error">Error loading announcements: ${e.message}</div>`;
+    } finally {
+        setLoading(false);
+    }
+}
+
+async function loadAiSummary(ticker) {
+    const aiContent = document.getElementById('ai-content');
+    const days = document.getElementById('days-filter').value;
+
+    aiContent.innerHTML = '<div class="ai-loading"><span class="spinner"></span>Generating AI summary...</div>';
+
+    try {
+        const url = `${ANN_TEST_BASE}/announcements/ai-summary?ticker=${encodeURIComponent(ticker)}&days=${days}`;
+        const res = await fetch(url);
+
+        if (!res.ok) {
+            throw new Error(`Failed to load AI summary (${res.status})`);
+        }
+
+        const data = await res.json();
+
+        if (!data.aiEnabled) {
+            aiContent.innerHTML = `
+                <div class="ai-unavailable">
+                    <p><strong>AI Summary not available</strong></p>
+                    <p>Configure AI settings to enable this feature.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = `
+            <div class="ai-summary-card">
+                <div class="ai-summary-header">
+                    <span class="ai-icon">🤖</span>
+                    <span class="ai-title">AI Summary for ${ticker}</span>
+                    <span class="ai-badge">GPT-4</span>
+                </div>
+                <div class="ai-summary-text">${data.summary || 'No summary available.'}</div>
+            </div>
+        `;
+
+        // Show announcements with relevance rankings if available
+        if (data.announcements && data.announcements.length > 0 && data.rankings) {
+            html += `
+                <div class="results-header">
+                    <span class="results-count">Announcements with Relevance Ranking</span>
+                </div>
+            `;
+
+            for (const ann of data.announcements) {
+                const relevanceScore = data.rankings[ann.newsId] || 0;
+                const relevanceClass = relevanceScore >= 7 ? 'relevance-high' : (relevanceScore >= 4 ? 'relevance-medium' : 'relevance-low');
+                const displayDate = formatBroadcastDate(ann.broadcastDateTime, ann.announcementDate);
+
+                html += `
+                    <div class="ann-card">
+                        <div class="ann-header">
+                            <span>
+                                <span class="ann-category">${ann.category || 'General'}</span>
+                                <span class="relevance-badge ${relevanceClass}">Relevance: ${relevanceScore}/10</span>
+                            </span>
+                            <span class="ann-date">${displayDate}</span>
+                        </div>
+                        <div class="ann-company">${ann.companyName || ''}</div>
+                        <div class="ann-subject">${ann.subject || 'No subject'}</div>
+                        <div class="ann-footer">
+                            ${ann.pdfUrl ? `<a href="${ann.pdfUrl}" target="_blank" class="btn-pdf">📄 View PDF</a>` : ''}
+                            <span class="scrip-code">Scrip: ${ann.scripCode || ''} | NSE: ${ann.nseTicker || ''}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        aiContent.innerHTML = html;
+
+    } catch (e) {
+        console.error(e);
+        aiContent.innerHTML = `<div class="error">Error loading AI summary: ${e.message}</div>`;
+    }
+}
+
+// Autocomplete functionality
+const tickerInput = document.getElementById('ticker-input');
+const dropdown = document.getElementById('autocomplete-dropdown');
+
+function getToken() {
+    return localStorage.getItem(tokenKey);
+}
+
+function authHeaders() {
+    const token = getToken();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+function authHeadersJSON() {
+    const token = getToken();
+    return token ? {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+    } : { 'Content-Type': 'application/json' };
+}
+
+// Mark announcements as seen
+async function markAnnouncementsAsSeen(newsIds) {
+    if (!newsIds || newsIds.length === 0) return;
+
+    try {
+        // Use test endpoint for local dev (no auth required), authenticated endpoint otherwise
+        const token = getToken();
+        let url, headers;
+
+        if (token && window.location.hostname !== "localhost") {
+            // Production: use authenticated endpoint via gateway with auto token refresh
+            url = `${getAnnApiBase()}/seen`;
+            const res = await fetchWithAuth(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newsIds: newsIds })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                console.log('Marked announcements as seen:', data.markedCount);
+            } else {
+                console.log('Failed to mark as seen:', res.status);
+            }
+            return;
+        }
+
+        // Local dev: use test endpoint directly (no auth required)
+        url = `${ANN_TEST_BASE}/announcements/seen`;
+        headers = { 'Content-Type': 'application/json' };
+
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ newsIds: newsIds })
+        });
+
+        if (res.ok) {
+            const data = await res.json();
+            console.log('Marked announcements as seen:', data.markedCount);
+        } else {
+            console.log('Failed to mark as seen:', res.status);
+        }
+    } catch (e) {
+        console.log('Could not mark announcements as seen:', e.message);
+    }
+}
+
+// Mark all visible announcements as seen
+async function markAllAsRead() {
+    const unseenNewsIds = currentAnnouncements
+        .filter(ann => !ann.seen)
+        .map(ann => ann.newsId)
+        .filter(Boolean);
+
+    if (unseenNewsIds.length === 0) {
+        alert('All announcements are already marked as read.');
+        return;
+    }
+
+    await markAnnouncementsAsSeen(unseenNewsIds);
+
+    // Update local state
+    currentAnnouncements.forEach(ann => ann.seen = true);
+
+    // Re-render
+    renderAnnouncements(currentAnnouncements);
+}
+
+// Render announcements with seen/unseen styling
+function renderAnnouncements(announcements) {
+    const content = document.getElementById('content');
+    const unseenCount = announcements.filter(ann => !ann.seen).length;
+
+    let html = `
+        <div class="results-header">
+            <span class="results-count">
+                Found ${announcements.length} announcement${announcements.length > 1 ? 's' : ''}
+                ${unseenCount > 0 ? `<span class="unseen-badge">${unseenCount} NEW</span>` : ''}
+                <span class="live-badge">LIVE</span>
+            </span>
+            ${unseenCount > 0 ? `<button class="btn-mark-all" onclick="markAllAsRead()">Mark all as read</button>` : ''}
+        </div>
+    `;
+
+    for (const ann of announcements) {
+        const displayDate = formatBroadcastDate(ann.broadcastDateTime, ann.announcementDate);
+        const seenClass = ann.seen ? 'seen' : 'unseen';
+
+        html += `
+            <div class="ann-card ${seenClass}" data-newsid="${ann.newsId || ''}">
+                <div class="ann-header">
+                    <span>
+                        <span class="ann-category">${ann.category || 'General'}</span>
+                        ${!ann.seen ? '<span class="unseen-badge">NEW</span>' : ''}
+                    </span>
+                    <span class="ann-date">${displayDate}</span>
+                </div>
+                <div class="ann-company">${ann.companyName || ''}</div>
+                <div class="ann-subject">${ann.subject || 'No subject'}</div>
+                <div class="ann-footer">
+                    ${ann.pdfUrl ? `<a href="${ann.pdfUrl}" target="_blank" class="btn-pdf" onclick="markSingleAsSeen('${ann.newsId}')">📄 View PDF</a>` : ''}
+                    <span class="scrip-code">Scrip: ${ann.scripCode || ''} | NSE: ${ann.nseTicker || ''}</span>
+                    ${!ann.seen ? `<button class="btn-mark-read" onclick="markSingleAsSeen('${ann.newsId}')">Mark as read</button>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    content.innerHTML = html;
+}
+
+// Mark a single announcement as seen
+async function markSingleAsSeen(newsId) {
+    if (!newsId) return;
+
+    await markAnnouncementsAsSeen([newsId]);
+
+    // Update local state
+    const ann = currentAnnouncements.find(a => a.newsId === newsId);
+    if (ann) {
+        ann.seen = true;
+        renderAnnouncements(currentAnnouncements);
+    }
+}
+
+async function fetchAutocompleteSuggestions(query) {
+    if (query.length < 2) {
+        hideAutocomplete();
+        return;
+    }
+
+    try {
+        // Use reporting service for stock search (has all stock analytics data)
+        const url = `${REPORTING_API_BASE}/stocks/search?q=${encodeURIComponent(query)}`;
+        const res = await fetchWithAuth(url);
+        if (!res.ok) return;
+
+        autocompleteResults = await res.json();
+        showAutocomplete(autocompleteResults);
+    } catch (e) {
+        console.error('Autocomplete error:', e);
+    }
+}
+
+function showAutocomplete(results) {
+    if (results.length === 0) {
+        dropdown.innerHTML = '<div class="autocomplete-hint">No matching companies found. Try searching anyway!</div>';
+        dropdown.classList.add('show');
+        return;
+    }
+
+    let html = '';
+    for (let i = 0; i < results.length; i++) {
+        const stock = results[i];
+        // Extract pure ticker (remove NSE: prefix if present)
+        const pureTicker = stock.ticker ? stock.ticker.replace('NSE:', '') : '';
+        html += `
+            <div class="autocomplete-item" data-index="${i}">
+                <span class="autocomplete-company">${stock.name || stock.ticker}</span>
+                <span class="autocomplete-ticker">${pureTicker}</span>
+            </div>
+        `;
+    }
+    dropdown.innerHTML = html;
+    dropdown.classList.add('show');
+
+    // Add click handlers
+    dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const index = parseInt(item.dataset.index);
+            selectAutocompleteItem(index);
+        });
+    });
+}
+
+function hideAutocomplete() {
+    dropdown.classList.remove('show');
+    dropdown.innerHTML = '';
+}
+
+function selectAutocompleteItem(index) {
+    const stock = autocompleteResults[index];
+    if (!stock) return;
+
+    selectedCompany = stock;
+    // Extract pure ticker (remove NSE: prefix if present)
+    const pureTicker = stock.ticker ? stock.ticker.replace('NSE:', '') : '';
+    tickerInput.value = stock.label || `${stock.name} (${pureTicker})`;
+
+    hideAutocomplete();
+
+    // Automatically search
+    searchAnnouncements();
+}
+
+// Input event for autocomplete
+tickerInput.addEventListener('input', function(e) {
+    selectedCompany = null; // Clear selection when typing
+    const query = e.target.value.trim();
+
+    // Debounce
+    if (autocompleteTimeout) clearTimeout(autocompleteTimeout);
+    autocompleteTimeout = setTimeout(() => {
+        fetchAutocompleteSuggestions(query);
+    }, 300);
+});
+
+// Hide dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.autocomplete-wrapper')) {
+        hideAutocomplete();
+    }
+});
+
+// Handle Enter key in search input
+tickerInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        hideAutocomplete();
+        searchAnnouncements();
+    }
+});
+
+// Handle keyboard navigation in dropdown
+tickerInput.addEventListener('keydown', function(e) {
+    if (!dropdown.classList.contains('show')) return;
+
+    const items = dropdown.querySelectorAll('.autocomplete-item');
+    const selected = dropdown.querySelector('.autocomplete-item.selected');
+    let currentIndex = -1;
+
+    if (selected) {
+        currentIndex = Array.from(items).indexOf(selected);
+    }
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (currentIndex < items.length - 1) {
+            if (selected) selected.classList.remove('selected');
+            items[currentIndex + 1].classList.add('selected');
+            items[currentIndex + 1].scrollIntoView({ block: 'nearest' });
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (currentIndex > 0) {
+            if (selected) selected.classList.remove('selected');
+            items[currentIndex - 1].classList.add('selected');
+            items[currentIndex - 1].scrollIntoView({ block: 'nearest' });
+        }
+    } else if (e.key === 'Enter' && selected) {
+        e.preventDefault();
+        const index = parseInt(selected.dataset.index);
+        selectAutocompleteItem(index);
+    } else if (e.key === 'Escape') {
+        hideAutocomplete();
+    }
+});
+
+// Handle days filter change
+document.getElementById('days-filter').addEventListener('change', function() {
+    const ticker = getUrlParam('ticker');
+    if (ticker) {
+        loadAnnouncements(ticker);
+    } else {
+        loadRecentAnnouncements(0);
+    }
+});
+
+// Load recent announcements from database (default view)
+async function loadRecentAnnouncements(page = 0) {
+    const content = document.getElementById('content');
+    const days = document.getElementById('days-filter').value;
+
+    currentTicker = null;
+    isLiveSearch = false;
+    currentPage = page;
+
+    // Clear ticker badge
+    document.getElementById('ticker-badge').innerHTML = '<span class="ticker-badge" style="background:#6366f1;">All Recent</span>';
+
+    // Hide tabs for default view
+    document.getElementById('tabs-container').style.display = 'none';
+
+    content.innerHTML = '<div class="loading"><span class="spinner"></span>Loading recent announcements...</div>';
+
+    try {
+        // Calculate date range
+        const toDate = new Date().toISOString().split('T')[0];
+        const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        const url = `${ANN_TEST_BASE}/announcements?fromDate=${fromDate}&toDate=${toDate}&page=${page}&size=20`;
+        const res = await fetch(url);
+
+        if (!res.ok) {
+            throw new Error(`Failed to load (${res.status})`);
+        }
+
+        const data = await res.json();
+        let announcements = data.content || [];
+
+        // Sort by broadcastDateTime (most recent first) - in case DB order is different
+        announcements = sortAnnouncementsByDate(announcements);
+
+        totalPages = data.totalPages || 1;
+        currentPage = data.number || 0;
+
+        if (!announcements || announcements.length === 0) {
+            content.innerHTML = `<div class="empty">No announcements found in the last ${days} days.</div>`;
+            return;
+        }
+
+        let html = `
+            <div class="results-header">
+                <span class="results-count">
+                    Showing ${announcements.length} of ${data.totalElements || announcements.length} announcements
+                    <span class="db-badge">FROM DATABASE</span>
+                </span>
+            </div>
+        `;
+
+        for (const ann of announcements) {
+            const displayDate = formatBroadcastDate(ann.broadcastDateTime, ann.announcementDate);
+
+            html += `
+                <div class="ann-card">
+                    <div class="ann-header">
+                        <span class="ann-category">${ann.category || 'General'}</span>
+                        <span class="ann-date">${displayDate}</span>
+                    </div>
+                    <div class="ann-company">${ann.companyName || ''}</div>
+                    <div class="ann-subject">${ann.subject || 'No subject'}</div>
+                    <div class="ann-footer">
+                        ${ann.pdfUrl ? `<a href="${ann.pdfUrl}" target="_blank" class="btn-pdf">📄 View PDF</a>` : ''}
+                        <span class="scrip-code">Scrip: ${ann.scripCode || ''} | NSE: ${ann.nseTicker || ''}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add pagination
+        if (totalPages > 1) {
+            html += `
+                <div class="pagination">
+                    <button onclick="loadRecentAnnouncements(${currentPage - 1})" ${currentPage === 0 ? 'disabled' : ''}>Previous</button>
+                    <span class="page-info">Page ${currentPage + 1} of ${totalPages}</span>
+                    <button onclick="loadRecentAnnouncements(${currentPage + 1})" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+                </div>
+            `;
+        }
+
+        content.innerHTML = html;
+
+    } catch (e) {
+        console.error(e);
+        content.innerHTML = `<div class="error">Error loading announcements: ${e.message}</div>`;
+    }
+}
+
+// Init
+(function init() {
+    const ticker = getUrlParam('ticker');
+    if (ticker) {
+        const pureTicker = extractPureTicker(ticker);
+        document.getElementById('ticker-input').value = pureTicker;
+        loadAnnouncements(pureTicker);
+    } else {
+        // Load recent announcements from DB by default
+        loadRecentAnnouncements(0);
+    }
+})();
+</script>
+</body>
+</html>

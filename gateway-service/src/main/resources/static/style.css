@@ -285,6 +285,29 @@ body {
     height: 18px;
 }
 
+/* Stay logged in checkbox */
+.sa-stay-logged-in {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    color: var(--sa-text-secondary, #94a3b8);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.sa-stay-logged-in:hover {
+    color: var(--sa-text, #f1f5f9);
+}
+
+.sa-stay-logged-in input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #3b82f6;
+    cursor: pointer;
+}
+
 /* MAIN LAYOUT */
 .sa-main {
     max-width: 1180px;
@@ -742,6 +765,69 @@ button {
     background: #020617;
     color: #e5e7eb;
     font-size: 13px;
+}
+
+/* Search Autocomplete for Dashboard */
+.filters .search-autocomplete-container {
+    position: relative;
+    display: inline-block;
+}
+
+.filters .search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    min-width: 280px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    display: none;
+}
+
+.filters .search-dropdown.show {
+    display: block;
+}
+
+.filters .search-dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    transition: background 0.15s;
+}
+
+.filters .search-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.filters .search-dropdown-item:hover,
+.filters .search-dropdown-item.selected {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.filters .search-dropdown-item .ticker {
+    font-weight: 600;
+    color: #3b82f6;
+    font-size: 13px;
+}
+
+.filters .search-dropdown-item .name {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.filters .search-dropdown-empty,
+.filters .search-dropdown-loading {
+    padding: 12px;
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
 }
 
 /* Table */

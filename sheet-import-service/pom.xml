@@ -82,6 +82,23 @@
             <version>42.6.0</version>
         </dependency>
 
+        <!-- Yahoo Finance API for 52-week high/low data -->
+        <dependency>
+            <groupId>com.yahoofinance-api</groupId>
+            <artifactId>YahooFinanceAPI</artifactId>
+            <version>3.15.0</version>
+        </dependency>
+
+        <!-- Actuator & Metrics -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
     </dependencies>
     <repositories>
         <repository>

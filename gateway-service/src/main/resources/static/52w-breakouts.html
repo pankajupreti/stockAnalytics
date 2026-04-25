@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>52-Week Breakouts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            background: #f9fafb;
+            color: #333;
+        }
+        .navbar {
+            background: #0f172a;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar .brand { font-weight: 700; letter-spacing: .3px; }
+        .navbar .links a {
+            color: #cbd5e1;
+            text-decoration: none;
+            padding: 8px 10px;
+            border-radius: 8px;
+            margin-left: 8px;
+        }
+        .navbar .links a.active, .navbar .links a:hover {
+            color: #fff;
+            background: rgba(255,255,255,.1);
+        }
+        h2 { color: #1f2937; margin: 20px; }
+        .stats { margin: 0 20px 15px; color: #666; }
+        .filter-tabs {
+            display: flex;
+            gap: 10px;
+            margin: 15px 20px;
+        }
+        .filter-tabs button {
+            padding: 10px 20px;
+            border: 2px solid #0f172a;
+            border-radius: 6px;
+            background: white;
+            color: #0f172a;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .filter-tabs button.active {
+            background: #0f172a;
+            color: white;
+        }
+        .filter-tabs button.high-btn.active {
+            background: #16a34a;
+            border-color: #16a34a;
+        }
+        .filter-tabs button.low-btn.active {
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+        .filters {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 20px;
+            padding: 12px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .filters input, .filters select {
+            padding: 6px 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button.btn-primary {
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            background: #2563eb;
+            color: white;
+        }
+        button.btn-primary:hover { background: #1d4ed8; }
+        button.btn-secondary {
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            background: #e5e7eb;
+            color: #111827;
+        }
+        table {
+            width: calc(100% - 40px);
+            border-collapse: collapse;
+            margin: 0 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 10px;
+            font-size: 14px;
+            text-align: center;
+        }
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+        }
+        tr:nth-child(even) { background: #fafafa; }
+        tr:hover { background: #f1f5f9; }
+        .positive { color: #16a34a; font-weight: 600; }
+        .negative { color: #dc2626; font-weight: 600; }
+        .near-high { background: #dcfce7 !important; }
+        .at-high { background: #16a34a !important; color: white; }
+        .near-low { background: #fee2e2 !important; }
+        .at-low { background: #dc2626 !important; color: white; }
+        .pagination {
+            margin: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #login-section {
+            text-align: center;
+            margin-top: 100px;
+        }
+        #login-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html" class="active">52W Breakouts</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html">Health</a>
+    </div>
+</div>
+
+<div id="login-section" style="display:none;">
+    <h2>Please login to view 52-Week Breakouts</h2>
+    <button id="login-btn">Login with Google</button>
+</div>
+
+<div id="main-section" style="display:none;">
+    <h2>52-Week Breakouts</h2>
+    <div class="stats">Found <strong id="total-count">0</strong> stocks matching criteria</div>
+
+    <div class="filter-tabs">
+        <button id="filter-high" class="high-btn active">Near 52W High</button>
+        <button id="filter-low" class="low-btn">Near 52W Low</button>
+        <button id="filter-all">All Stocks</button>
+    </div>
+
+    <div class="filters">
+        <input type="text" id="search" placeholder="Search Ticker or Name">
+        Within <input type="number" id="threshold" value="5" style="width:60px;" step="0.5" min="0" max="50">% of 52W
+        <span id="threshold-label">High</span>
+        <button id="apply-btn" class="btn-primary">Apply</button>
+    </div>
+
+    <div id="table-container">(Loading...)</div>
+
+    <div class="pagination">
+        <button id="prev-page" class="btn-secondary">Prev</button>
+        <span id="page-info">Page 1</span>
+        <button id="next-page" class="btn-secondary">Next</button>
+    </div>
+</div>
+
+<script src="token-utils.js"></script>
+<script>
+const tokenKey = "access_token";
+let currentPage = 0;
+let currentFilter = "high";
+
+document.addEventListener("DOMContentLoaded", function() {
+    const token = localStorage.getItem(tokenKey);
+
+    if (!token) {
+        document.getElementById("login-section").style.display = "block";
+        document.getElementById("main-section").style.display = "none";
+    } else {
+        document.getElementById("login-section").style.display = "none";
+        document.getElementById("main-section").style.display = "block";
+        fetchBreakouts();
+    }
+
+    // Login button
+    document.getElementById("login-btn").addEventListener("click", function() {
+        window.location.href = "/oauth-service/oauth2/authorization/google";
+    });
+
+    // Filter tabs
+    document.getElementById("filter-high").addEventListener("click", function() {
+        setFilter("high");
+    });
+    document.getElementById("filter-low").addEventListener("click", function() {
+        setFilter("low");
+    });
+    document.getElementById("filter-all").addEventListener("click", function() {
+        setFilter("all");
+    });
+
+    // Apply button
+    document.getElementById("apply-btn").addEventListener("click", function() {
+        currentPage = 0;
+        fetchBreakouts();
+    });
+
+    // Pagination
+    document.getElementById("prev-page").addEventListener("click", function() {
+        if (currentPage > 0) {
+            currentPage--;
+            fetchBreakouts();
+        }
+    });
+    document.getElementById("next-page").addEventListener("click", function() {
+        currentPage++;
+        fetchBreakouts();
+    });
+});
+
+function setFilter(filter) {
+    currentFilter = filter;
+    currentPage = 0;
+
+    // Update button states
+    document.getElementById("filter-high").classList.remove("active");
+    document.getElementById("filter-low").classList.remove("active");
+    document.getElementById("filter-all").classList.remove("active");
+
+    if (filter === "high") {
+        document.getElementById("filter-high").classList.add("active");
+        document.getElementById("threshold-label").textContent = "High";
+    } else if (filter === "low") {
+        document.getElementById("filter-low").classList.add("active");
+        document.getElementById("threshold-label").textContent = "Low";
+    } else {
+        document.getElementById("filter-all").classList.add("active");
+        document.getElementById("threshold-label").textContent = "High/Low";
+    }
+
+    fetchBreakouts();
+}
+
+async function fetchBreakouts() {
+    try {
+        const params = new URLSearchParams({
+            filter: currentFilter,
+            threshold: document.getElementById("threshold").value,
+            search: document.getElementById("search").value,
+            page: currentPage,
+            pageSize: 50
+        });
+
+        // Use fetchWithAuth for automatic token refresh on 401
+        const res = await fetchWithAuth("/reporting-service/api/52w-breakouts?" + params.toString());
+
+        if (!res.ok) throw new Error("Unauthorized");
+
+        const data = await res.json();
+        renderTable(data.stocks || []);
+        document.getElementById("total-count").textContent = data.totalCount || 0;
+        document.getElementById("page-info").textContent = "Page " + (currentPage + 1);
+
+    } catch (err) {
+        console.error("Fetch failed:", err);
+        document.getElementById("login-section").style.display = "block";
+        document.getElementById("main-section").style.display = "none";
+    }
+}
+
+function renderTable(stocks) {
+    const container = document.getElementById("table-container");
+
+    if (!stocks.length) {
+        container.innerHTML = "<p style='margin:20px;'>No stocks found matching criteria</p>";
+        return;
+    }
+
+    let html = `<table>
+        <thead><tr>
+            <th>#</th>
+            <th>Ticker</th>
+            <th>Name</th>
+            <th>CMP</th>
+            <th>52W High</th>
+            <th>52W Low</th>
+            <th>% from High</th>
+            <th>% from Low</th>
+            <th>Daily %</th>
+        </tr></thead><tbody>`;
+
+    stocks.forEach((s, idx) => {
+        let rowClass = "";
+        if (s.pctFromHigh <= 1) rowClass = "at-high";
+        else if (s.pctFromHigh <= 5) rowClass = "near-high";
+        else if (s.pctFromLow <= 5) rowClass = "near-low";
+
+        const pctHighClass = s.pctFromHigh <= 5 ? "positive" : "";
+        const pctLowClass = s.pctFromLow <= 10 ? "negative" : "";
+        const dailyClass = (s.dailyChange >= 0) ? "positive" : "negative";
+
+        html += `<tr class="${rowClass}">
+            <td>${currentPage * 50 + idx + 1}</td>
+            <td>${s.ticker || ''}</td>
+            <td>${s.name || ''}</td>
+            <td>${formatNum(s.cmp)}</td>
+            <td>${formatNum(s.high52Week)}</td>
+            <td>${formatNum(s.low52Week)}</td>
+            <td class="${pctHighClass}">${formatNum(s.pctFromHigh)}%</td>
+            <td class="${pctLowClass}">+${formatNum(s.pctFromLow)}%</td>
+            <td class="${dailyClass}">${formatNum(s.dailyChange)}%</td>
+        </tr>`;
+    });
+
+    html += "</tbody></table>";
+    container.innerHTML = html;
+}
+
+function formatNum(val) {
+    if (val === null || val === undefined) return "-";
+    return Number(val).toFixed(2);
+}
+
+// Auto-refresh every 5 minutes
+setTimeout(() => location.reload(), 300000);
+</script>
+</body>
+</html>

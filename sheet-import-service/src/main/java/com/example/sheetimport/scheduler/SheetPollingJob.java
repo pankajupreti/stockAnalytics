@@ -33,8 +33,17 @@ public class SheetPollingJob {
             int importedCount = 0;
              for (List<Object> row : rows) {
                 if (row.size() >= 10 && isValidRow(row)) {
-                    StockAnalytics entity = new StockAnalytics();
-                    entity.setTicker(row.get(0).toString());
+                    String ticker = row.get(0).toString();
+
+                    // Fetch existing entity to preserve Yahoo Finance 52W data
+                    StockAnalytics entity = repository.findById(ticker).orElse(new StockAnalytics());
+
+                    // Preserve existing 52W data from Yahoo Finance
+                    Double existingHigh52Week = entity.getHigh52Week();
+                    Double existingLow52Week = entity.getLow52Week();
+                    LocalDateTime existing52WeekUpdated = entity.getHigh52WeekUpdated();
+
+                    entity.setTicker(ticker);
                     entity.setName(row.get(1).toString());
                     entity.setCmp(parseDouble(row.get(2)));
                     entity.setDailyChange(parseDouble(row.get(3)));
@@ -45,6 +54,15 @@ public class SheetPollingJob {
                     entity.setRank1Week(parseDouble(row.get(11)));
                     entity.setMarketCap(parseDouble(row.get(12)));
                     entity.setLastUpdated(LocalDateTime.now());
+
+                    // Set source as SHEET (imported from Google Sheet)
+                    entity.setSource("SHEET");
+
+                    // Restore 52W data (don't overwrite Yahoo Finance data)
+                    entity.setHigh52Week(existingHigh52Week);
+                    entity.setLow52Week(existingLow52Week);
+                    entity.setHigh52WeekUpdated(existing52WeekUpdated);
+
                     repository.save(entity);
                     importedCount++;
                 }

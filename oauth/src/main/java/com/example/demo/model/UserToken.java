@@ -6,15 +6,14 @@ import jakarta.persistence.Lob;
 import java.time.Instant;
 
 @Entity
-
-
-
 public class UserToken {
 
     @Id
     private String sub;
 
     private String email;
+
+    private String name;
 
     @Lob
     private String refreshToken;
@@ -24,17 +23,22 @@ public class UserToken {
 
     private Instant expiresAt;
 
+    private Boolean stayLoggedIn;
+
+    private Instant lastActivity;
 
     public UserToken(){
-
     }
 
-    public UserToken(String sub, String email, String refreshToken, String accessToken, Instant expiresAt) {
+    public UserToken(String sub, String email, String name, String refreshToken, String accessToken, Instant expiresAt) {
         this.sub = sub;
         this.email = email;
+        this.name = name;
         this.refreshToken = refreshToken;
         this.accessToken = accessToken;
         this.expiresAt = expiresAt;
+        this.stayLoggedIn = false;
+        this.lastActivity = Instant.now();
     }
 
 
@@ -43,20 +47,32 @@ public class UserToken {
 
     public String getEmail() { return email; }
 
+    public String getName() { return name; }
+
     public String getRefreshToken() { return refreshToken; }
 
     public String getAccessToken() { return accessToken; }
 
     public Instant getExpiresAt() { return expiresAt; }
 
+    public Boolean getStayLoggedIn() { return stayLoggedIn; }
+
+    public Instant getLastActivity() { return lastActivity; }
+
     // --- Setters ---
     public void setSub(String sub) { this.sub = sub; }
 
     public void setEmail(String email) { this.email = email; }
+
+    public void setName(String name) { this.name = name; }
 
     public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
 
     public void setAccessToken(String accessToken) { this.accessToken = accessToken; }
 
     public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
+
+    public void setStayLoggedIn(Boolean stayLoggedIn) { this.stayLoggedIn = stayLoggedIn; }
+
+    public void setLastActivity(Instant lastActivity) { this.lastActivity = lastActivity; }
 }

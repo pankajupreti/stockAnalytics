@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PEAD Scanner - Post Earnings Drift</title>
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
+    <style>
+        :root { --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --soft:#eef2ff; --border:#e5e7eb; --primary:#2563eb; }
+        body{ margin:0; font-family:Segoe UI, Arial, sans-serif; background:#f9fafb; color:#111827; }
+        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; position:sticky; top:0; z-index:100; }
+        .brand{ font-weight:700; letter-spacing:.3px; }
+        .links a{ color:#cbd5e1; text-decoration:none; padding:8px 10px; border-radius:8px; margin-left:8px; font-size:13px; }
+        .links a.active, .links a:hover{ color:#fff; background:rgba(255,255,255,.1); }
+        .wrap{ padding:20px; max-width:1600px; margin:0 auto; }
+
+        .btn{ padding:8px 14px; border:none; border-radius:8px; cursor:pointer; font-weight:600; font-size:14px; }
+        .btn-primary{ background:var(--primary); color:white; }
+        .btn-outline{ background:#fff; border:1px solid var(--border); }
+        .btn-success{ background:#059669; color:white; }
+        .btn-muted{ background:#e5e7eb; }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        .page-header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header-subtitle {
+            color: var(--muted);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .preset-btn {
+            padding: 10px 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .preset-btn:hover {
+            border-color: var(--primary);
+            background: #f0f7ff;
+        }
+        .preset-btn.active {
+            border-color: var(--primary);
+            background: #dbeafe;
+            color: var(--primary);
+        }
+        .preset-btn .preset-icon {
+            font-size: 16px;
+            margin-right: 6px;
+        }
+
+        .filters-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-group label {
+            font-size: 13px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+        .filter-group input, .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            width: 100px;
+        }
+        .filter-group select {
+            width: 160px;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 14px 20px;
+            border: 1px solid var(--border);
+            min-width: 130px;
+        }
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #059669;
+        }
+        .stat-value.negative { color: #dc2626; }
+        .stat-value.neutral { color: #2563eb; }
+        .stat-label {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .results-table-wrap {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+        .results-table th, .results-table td {
+            padding: 12px 14px;
+            text-align: right;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .results-table th:first-child, .results-table td:first-child {
+            text-align: left;
+            position: sticky;
+            left: 0;
+            background: inherit;
+        }
+        .results-table thead {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            color: white;
+        }
+        .results-table thead th {
+            font-weight: 600;
+            font-size: 12px;
+            padding: 14px;
+        }
+        .results-table thead th:first-child {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+        }
+        .results-table tbody tr {
+            background: white;
+        }
+        .results-table tbody tr:hover {
+            background: #f0f7ff;
+        }
+        .results-table tbody tr:hover td:first-child {
+            background: #f0f7ff;
+        }
+        .results-table tbody tr:nth-child(even) {
+            background: #fafbfc;
+        }
+        .results-table tbody tr:nth-child(even) td:first-child {
+            background: #fafbfc;
+        }
+        .results-table tbody tr:nth-child(even):hover {
+            background: #f0f7ff;
+        }
+        .results-table tbody tr:nth-child(even):hover td:first-child {
+            background: #f0f7ff;
+        }
+
+        .ticker-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .ticker-link:hover {
+            text-decoration: underline;
+        }
+        .company-name {
+            font-size: 11px;
+            color: var(--muted);
+            display: block;
+            margin-top: 2px;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .positive { color: #059669; }
+        .negative { color: #dc2626; }
+
+        .growth-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .growth-badge.up {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .growth-badge.down {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .rs-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .rs-badge.high { background: #d1fae5; color: #065f46; }
+        .rs-badge.medium { background: #fef3c7; color: #92400e; }
+        .rs-badge.low { background: #fee2e2; color: #991b1b; }
+
+        .mcap-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .mcap-badge.large { background: #dbeafe; color: #1e40af; }
+        .mcap-badge.mid { background: #e0e7ff; color: #3730a3; }
+        .mcap-badge.small { background: #fef3c7; color: #92400e; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #374151;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #6b7280;
+        }
+
+        .muted { color: var(--muted); font-size: 12px; margin-top: 16px; }
+
+        .current-quarter-info {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-block;
+            margin-left: 12px;
+        }
+
+        /* Sortable headers */
+        .results-table thead th.sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 20px;
+        }
+        .results-table thead th.sortable:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .results-table thead th.sortable::after {
+            content: '⇅';
+            position: absolute;
+            right: 6px;
+            opacity: 0.4;
+            font-size: 10px;
+        }
+        .results-table thead th.sortable.asc::after {
+            content: '↑';
+            opacity: 1;
+        }
+        .results-table thead th.sortable.desc::after {
+            content: '↓';
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .filters-card { flex-direction: column; align-items: stretch; }
+            .filter-group { flex-wrap: wrap; }
+            .preset-buttons { flex-direction: column; }
+            .preset-btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html" class="active">PEAD Scanner</a>
+        <a href="health.html">Health</a>
+    </div>
+</div>
+
+<div class="wrap">
+    <div class="page-header">
+        <div>
+            <h1>PEAD Scanner <span id="quarter-info" class="current-quarter-info">Loading...</span></h1>
+            <div class="header-subtitle">Post Earnings Announcement Drift - Find stocks showing momentum after strong results</div>
+        </div>
+        <button id="logout-btn" class="btn btn-muted">Logout</button>
+    </div>
+
+    <div class="preset-buttons">
+        <button class="preset-btn active" data-preset="quick" onclick="loadPreset('quick')">
+            <span class="preset-icon">⚡</span> Quick Scan
+        </button>
+        <button class="preset-btn" data-preset="momentum" onclick="loadPreset('momentum')">
+            <span class="preset-icon">🚀</span> Momentum Leaders
+        </button>
+        <button class="preset-btn" data-preset="turnarounds" onclick="loadPreset('turnarounds')">
+            <span class="preset-icon">🔄</span> Turnarounds
+        </button>
+        <button class="preset-btn" data-preset="smallcap" onclick="loadPreset('smallcap')">
+            <span class="preset-icon">💎</span> Small-Cap Gems
+        </button>
+        <button class="preset-btn" data-preset="negative" onclick="loadPreset('negative')">
+            <span class="preset-icon">📉</span> Negative Drifters
+        </button>
+        <button class="preset-btn" data-preset="custom" onclick="loadPreset('custom')">
+            <span class="preset-icon">⚙️</span> Custom
+        </button>
+    </div>
+
+    <div class="filters-card" id="filters-card">
+        <div class="filter-group">
+            <label>PAT YoY (%):</label>
+            <input type="number" id="min-pat-yoy" value="" min="-100" step="5" placeholder="e.g. 20">
+        </div>
+        <div class="filter-group">
+            <label>PAT QoQ (%):</label>
+            <input type="number" id="min-pat-qoq" value="" min="-100" step="5" placeholder="optional">
+        </div>
+        <div class="filter-group">
+            <label>Revenue YoY (%):</label>
+            <input type="number" id="min-revenue-yoy" value="" min="-100" step="5" placeholder="e.g. 15">
+        </div>
+        <div class="filter-group">
+            <label>Revenue QoQ (%):</label>
+            <input type="number" id="min-revenue-qoq" value="" min="-100" step="5" placeholder="optional">
+        </div>
+        <div class="filter-group">
+            <label>PBT YoY (%):</label>
+            <input type="number" id="min-pbt-yoy" value="" min="-100" step="5" placeholder="optional">
+        </div>
+        <div class="filter-group">
+            <label>PBT QoQ (%):</label>
+            <input type="number" id="min-pbt-qoq" value="" min="-100" step="5" placeholder="optional">
+        </div>
+        <div class="filter-group">
+            <label>Min MCap (Cr):</label>
+            <input type="number" id="min-mcap" value="" min="0" step="100" placeholder="e.g. 500">
+        </div>
+        <div class="filter-group">
+            <label>Max MCap (Cr):</label>
+            <input type="number" id="max-mcap" value="" min="0" step="100" placeholder="e.g. 10000">
+        </div>
+        <div class="filter-group">
+            <label>Min % Since Results:</label>
+            <input type="number" id="min-pct-change" value="" step="1" placeholder="e.g. 5">
+        </div>
+        <div class="filter-group">
+            <label>Sort By:</label>
+            <select id="sort-by">
+                <option value="pctChangeSinceResults">% Since Results</option>
+                <option value="patYoY">PAT YoY</option>
+                <option value="patQoQ">PAT QoQ</option>
+                <option value="pbtYoY">PBT YoY</option>
+                <option value="pbtQoQ">PBT QoQ</option>
+                <option value="revenueYoY">Revenue YoY</option>
+                <option value="revenueQoQ">Revenue QoQ</option>
+                <option value="rsRating">RS Rating</option>
+                <option value="marketCap">Market Cap</option>
+                <option value="pctFrom52WeekHigh">% From 52W High</option>
+                <option value="announcementDate">Announcement Date</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Quarter:</label>
+            <select id="quarter-filter">
+                <option value="current" selected>Current Quarter</option>
+                <option value="Q4-2026">Q4 FY26</option>
+                <option value="Q3-2026">Q3 FY26</option>
+                <option value="Q2-2026">Q2 FY26</option>
+                <option value="Q1-2026">Q1 FY26</option>
+                <option value="Q4-2025">Q4 FY25</option>
+                <option value="Q3-2025">Q3 FY25</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Result Type:</label>
+            <select id="result-type">
+                <option value="consolidated">Consolidated</option>
+                <option value="standalone">Standalone</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="loadPeadData()">Apply Filters</button>
+        <button class="btn btn-outline" onclick="resetFilters()">Reset</button>
+    </div>
+
+    <div class="stats-row" id="stats-row">
+        <div class="stat-card">
+            <div class="stat-value neutral" id="stat-count">-</div>
+            <div class="stat-label">Stocks Found</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-positive">-</div>
+            <div class="stat-label">Positive Drift</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value negative" id="stat-negative">-</div>
+            <div class="stat-label">Negative Drift</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value neutral" id="stat-avg-change">-</div>
+            <div class="stat-label">Avg % Change</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="stat-top-gainer">-</div>
+            <div class="stat-label">Top Gainer</div>
+        </div>
+    </div>
+
+    <div id="results-content">
+        <div class="loading">Loading PEAD data...</div>
+    </div>
+
+    <div class="muted">
+        PEAD (Post Earnings Announcement Drift) - A market anomaly where stocks continue to drift in the direction of their earnings surprise.
+        Data combines quarterly results with current price analytics.
+    </div>
+</div>
+
+<script src="token-utils.js"></script>
+<script>
+    const PEAD_API_BASE = window.location.hostname === "localhost"
+        ? "http://localhost:8082/announcement-service/api/pead"
+        : `${window.location.origin}/announcement-service/api/pead`;
+
+    let currentPreset = 'quick';
+    let currentStocks = [];  // Store stocks for client-side sorting
+    let currentSortField = 'pctChangeSinceResults';
+    let currentSortOrder = 'desc';
+
+    // Load current quarter info on page load
+    async function loadQuarterInfo() {
+        try {
+            const res = await fetch(`${PEAD_API_BASE}/current-quarter`);
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById("quarter-info").textContent =
+                    `${data.quarter} FY${data.fiscalYear.toString().slice(-2)} Results Season`;
+            }
+        } catch (e) {
+            console.log("Could not load quarter info:", e);
+            document.getElementById("quarter-info").textContent = "Current Quarter";
+        }
+    }
+
+    function loadPreset(preset) {
+        currentPreset = preset;
+
+        // Update button states
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.preset === preset);
+        });
+
+        // Set filter values based on preset
+        switch (preset) {
+            case 'quick':
+                document.getElementById("min-pat-yoy").value = 20;
+                document.getElementById("min-pat-qoq").value = "";
+                document.getElementById("min-revenue-yoy").value = 15;
+                document.getElementById("min-revenue-qoq").value = "";
+                document.getElementById("min-pbt-yoy").value = "";
+                document.getElementById("min-pbt-qoq").value = "";
+                document.getElementById("min-mcap").value = 500;
+                document.getElementById("max-mcap").value = "";
+                document.getElementById("min-pct-change").value = "";
+                document.getElementById("sort-by").value = "pctChangeSinceResults";
+                break;
+            case 'momentum':
+                document.getElementById("min-pat-yoy").value = 20;
+                document.getElementById("min-pat-qoq").value = "";
+                document.getElementById("min-revenue-yoy").value = 15;
+                document.getElementById("min-revenue-qoq").value = "";
+                document.getElementById("min-pbt-yoy").value = "";
+                document.getElementById("min-pbt-qoq").value = "";
+                document.getElementById("min-mcap").value = 1000;
+                document.getElementById("max-mcap").value = "";
+                document.getElementById("min-pct-change").value = 5;
+                document.getElementById("sort-by").value = "rsRating";
+                break;
+            case 'turnarounds':
+                document.getElementById("min-pat-yoy").value = 25;
+                document.getElementById("min-pat-qoq").value = 10;
+                document.getElementById("min-revenue-yoy").value = 10;
+                document.getElementById("min-revenue-qoq").value = "";
+                document.getElementById("min-pbt-yoy").value = "";
+                document.getElementById("min-pbt-qoq").value = "";
+                document.getElementById("min-mcap").value = 100;
+                document.getElementById("max-mcap").value = "";
+                document.getElementById("min-pct-change").value = "";
+                document.getElementById("sort-by").value = "patYoY";
+                break;
+            case 'smallcap':
+                document.getElementById("min-pat-yoy").value = 30;
+                document.getElementById("min-pat-qoq").value = "";
+                document.getElementById("min-revenue-yoy").value = 10;
+                document.getElementById("min-revenue-qoq").value = "";
+                document.getElementById("min-pbt-yoy").value = "";
+                document.getElementById("min-pbt-qoq").value = "";
+                document.getElementById("min-mcap").value = 100;
+                document.getElementById("max-mcap").value = 2000;
+                document.getElementById("min-pct-change").value = "";
+                document.getElementById("sort-by").value = "patYoY";
+                break;
+            case 'negative':
+                // Negative drifters - stocks with good results but negative price drift
+                document.getElementById("min-pat-yoy").value = "";
+                document.getElementById("min-pat-qoq").value = "";
+                document.getElementById("min-revenue-yoy").value = "";
+                document.getElementById("min-revenue-qoq").value = "";
+                document.getElementById("min-pbt-yoy").value = "";
+                document.getElementById("min-pbt-qoq").value = "";
+                document.getElementById("min-mcap").value = "";
+                document.getElementById("max-mcap").value = "";
+                document.getElementById("min-pct-change").value = "";
+                document.getElementById("sort-by").value = "pctChangeSinceResults";
+                // Set sort to ascending to show most negative first
+                currentSortOrder = 'asc';
+                break;
+            case 'custom':
+                // Clear all filters - return everything from Python service
+                document.getElementById("min-pat-yoy").value = "";
+                document.getElementById("min-pat-qoq").value = "";
+                document.getElementById("min-revenue-yoy").value = "";
+                document.getElementById("min-revenue-qoq").value = "";
+                document.getElementById("min-pbt-yoy").value = "";
+                document.getElementById("min-pbt-qoq").value = "";
+                document.getElementById("min-mcap").value = "";
+                document.getElementById("max-mcap").value = "";
+                document.getElementById("min-pct-change").value = "";
+                document.getElementById("sort-by").value = "pctChangeSinceResults";
+                currentSortOrder = 'desc';  // Default descending (most positive first)
+                break;
+        }
+
+        loadPeadData();
+    }
+
+    async function loadPeadData() {
+        const content = document.getElementById("results-content");
+        content.innerHTML = '<div class="loading">Loading PEAD data...</div>';
+
+        const minPatYoY = document.getElementById("min-pat-yoy").value;
+        const minPatQoQ = document.getElementById("min-pat-qoq").value;
+        const minRevenueYoY = document.getElementById("min-revenue-yoy").value;
+        const minRevenueQoQ = document.getElementById("min-revenue-qoq").value;
+        const minPbtYoY = document.getElementById("min-pbt-yoy").value;
+        const minPbtQoQ = document.getElementById("min-pbt-qoq").value;
+        const minMcap = document.getElementById("min-mcap").value;
+        const maxMcap = document.getElementById("max-mcap").value;
+        const minPctChange = document.getElementById("min-pct-change").value;
+        const sortBy = document.getElementById("sort-by").value;
+        const resultType = document.getElementById("result-type").value;
+
+        try {
+            const quarterFilter = document.getElementById("quarter-filter").value;
+
+            let params = [
+                `limit=500`,
+                `sortOrder=${currentSortOrder || 'desc'}`
+            ];
+
+            // Add quarter filter
+            if (quarterFilter === "current") {
+                params.push("currentQuarterOnly=true");
+            } else {
+                // Parse specific quarter like "Q3-2026"
+                const [q, fy] = quarterFilter.split("-");
+                params.push(`currentQuarterOnly=false`);
+                params.push(`quarter=${q}`);
+                params.push(`fiscalYear=${fy}`);
+            }
+
+            if (minPatYoY) params.push(`minPatYoY=${minPatYoY}`);
+            if (minPatQoQ) params.push(`minPatQoQ=${minPatQoQ}`);
+            if (minRevenueYoY) params.push(`minRevenueYoY=${minRevenueYoY}`);
+            if (minRevenueQoQ) params.push(`minRevenueQoQ=${minRevenueQoQ}`);
+            if (minPbtYoY) params.push(`minPbtYoY=${minPbtYoY}`);
+            if (minPbtQoQ) params.push(`minPbtQoQ=${minPbtQoQ}`);
+            if (minMcap) params.push(`minMarketCap=${minMcap}`);
+            if (maxMcap) params.push(`maxMarketCap=${maxMcap}`);
+            if (minPctChange) params.push(`minPctChange=${minPctChange}`);
+            if (sortBy) params.push(`sortBy=${sortBy}`);
+            if (resultType) params.push(`resultType=${resultType}`);
+
+            const url = `${PEAD_API_BASE}/scan?${params.join('&')}`;
+            console.log("Fetching PEAD data:", url);
+
+            const res = await fetchWithAuth(url);
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                content.innerHTML = `<div class="empty-state"><h3>Error loading PEAD data</h3><p>${errText || res.status}</p></div>`;
+                return;
+            }
+
+            const data = await res.json();
+            console.log("PEAD response:", data);
+
+            if (!data.stocks || data.stocks.length === 0) {
+                content.innerHTML = `<div class="empty-state">
+                    <h3>No stocks found matching criteria</h3>
+                    <p>Try lowering the growth thresholds or try a different preset.</p>
+                </div>`;
+                updateStats(null);
+                return;
+            }
+
+            currentStocks = data.stocks;
+            currentSortField = sortBy || 'pctChangeSinceResults';
+            // Don't reset sortOrder - keep what was set by preset
+            renderResults(currentStocks);
+            updateStats(data.summary);
+
+        } catch (e) {
+            console.error("Error:", e);
+            content.innerHTML = `<div class="empty-state"><h3>Error loading PEAD data</h3><p>${e.message}</p></div>`;
+        }
+    }
+
+    function renderResults(stocks) {
+        const content = document.getElementById("results-content");
+
+        // Define sortable columns
+        const columns = [
+            { key: 'ticker', label: 'Stock', sortable: true },
+            { key: 'announcementDate', label: 'Announced', sortable: true },
+            { key: 'quarter', label: 'Quarter', sortable: false },
+            { key: 'pctChangeSinceResults', label: '% Since Results', sortable: true },
+            { key: 'patYoY', label: 'PAT YoY', sortable: true },
+            { key: 'patQoQ', label: 'PAT QoQ', sortable: true },
+            { key: 'pbtYoY', label: 'PBT YoY', sortable: true },
+            { key: 'pbtQoQ', label: 'PBT QoQ', sortable: true },
+            { key: 'revenueYoY', label: 'Rev YoY', sortable: true },
+            { key: 'revenueQoQ', label: 'Rev QoQ', sortable: true },
+            { key: 'patMargin', label: 'PAT Margin', sortable: true },
+            { key: 'currentPrice', label: 'CMP', sortable: true },
+            { key: 'marketCap', label: 'MCap', sortable: true },
+            { key: 'pctFrom52WeekHigh', label: '% From 52W High', sortable: true },
+            { key: 'rsRating', label: 'RS Rating', sortable: true }
+        ];
+
+        let headerHtml = columns.map(col => {
+            if (col.sortable) {
+                const sortClass = currentSortField === col.key ? currentSortOrder : '';
+                return `<th class="sortable ${sortClass}" data-sort="${col.key}" onclick="sortByColumn('${col.key}')">${col.label}</th>`;
+            }
+            return `<th>${col.label}</th>`;
+        }).join('');
+
+        let html = `
+            <div class="results-table-wrap">
+                <table class="results-table">
+                    <thead>
+                        <tr>${headerHtml}</tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        for (const stock of stocks) {
+            const daysAgo = (stock.daysSinceAnnouncement != null && stock.announcementDate) ? `${stock.daysSinceAnnouncement}d ago` : '-';
+            const announcementDate = stock.announcementDate
+                ? new Date(stock.announcementDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+                : '-';
+
+            html += `
+                <tr>
+                    <td>
+                        <a href="results-analysis.html?ticker=${stock.ticker}" class="ticker-link">${stock.ticker}</a>
+                        <span class="company-name">${stock.companyName || ''}</span>
+                    </td>
+                    <td>${announcementDate}<br><span style="font-size:10px;color:var(--muted)">${daysAgo}</span></td>
+                    <td>${stock.quarterLabel || stock.quarter || '-'}</td>
+                    <td>${formatGrowthBadge(stock.pctChangeSinceResults)}</td>
+                    <td>${formatGrowthBadge(stock.patYoY)}</td>
+                    <td>${formatGrowthBadge(stock.patQoQ)}</td>
+                    <td>${formatGrowthBadge(stock.pbtYoY)}</td>
+                    <td>${formatGrowthBadge(stock.pbtQoQ)}</td>
+                    <td>${formatGrowthBadge(stock.revenueYoY)}</td>
+                    <td>${formatGrowthBadge(stock.revenueQoQ)}</td>
+                    <td>${stock.patMargin != null ? stock.patMargin.toFixed(1) + '%' : '-'}</td>
+                    <td>${stock.currentPrice != null ? '₹' + formatNumber(stock.currentPrice) : '-'}</td>
+                    <td>${formatMcapBadge(stock.marketCap)}</td>
+                    <td>${formatPctFrom52WH(stock.pctFrom52WeekHigh)}</td>
+                    <td>${formatRsBadge(stock.rsRating)}</td>
+                </tr>
+            `;
+        }
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        content.innerHTML = html;
+    }
+
+    function sortByColumn(field) {
+        // Toggle sort order if same field, otherwise default to desc
+        if (currentSortField === field) {
+            currentSortOrder = currentSortOrder === 'desc' ? 'asc' : 'desc';
+        } else {
+            currentSortField = field;
+            currentSortOrder = 'desc';
+        }
+
+        // Sort the stocks array
+        currentStocks.sort((a, b) => {
+            let valA = a[field];
+            let valB = b[field];
+
+            // Handle null/undefined
+            if (valA == null && valB == null) return 0;
+            if (valA == null) return 1;
+            if (valB == null) return -1;
+
+            // Handle dates
+            if (field === 'announcementDate') {
+                valA = new Date(valA).getTime();
+                valB = new Date(valB).getTime();
+            }
+
+            // Handle strings
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return currentSortOrder === 'asc'
+                    ? valA.localeCompare(valB)
+                    : valB.localeCompare(valA);
+            }
+
+            // Handle numbers
+            return currentSortOrder === 'asc' ? valA - valB : valB - valA;
+        });
+
+        // Re-render with sorted data
+        renderResults(currentStocks);
+    }
+
+    function updateStats(summary) {
+        if (!summary) {
+            document.getElementById("stat-count").textContent = "0";
+            document.getElementById("stat-positive").textContent = "-";
+            document.getElementById("stat-negative").textContent = "-";
+            document.getElementById("stat-avg-change").textContent = "-";
+            document.getElementById("stat-top-gainer").textContent = "-";
+            return;
+        }
+
+        document.getElementById("stat-count").textContent = summary.totalStocks || 0;
+        document.getElementById("stat-positive").textContent = summary.positiveGainers || 0;
+        document.getElementById("stat-negative").textContent = summary.negativeGainers || 0;
+
+        if (summary.avgPctChange != null) {
+            const sign = summary.avgPctChange >= 0 ? '+' : '';
+            document.getElementById("stat-avg-change").textContent = sign + summary.avgPctChange.toFixed(1) + '%';
+            document.getElementById("stat-avg-change").className =
+                'stat-value ' + (summary.avgPctChange >= 0 ? '' : 'negative');
+        }
+
+        if (summary.topGainer) {
+            const maxVal = summary.maxPctChange != null ? '+' + summary.maxPctChange.toFixed(1) + '%' : '';
+            document.getElementById("stat-top-gainer").textContent = `${summary.topGainer} (${maxVal})`;
+        }
+    }
+
+    function formatNumber(val) {
+        if (val == null) return '-';
+        if (Math.abs(val) >= 100) {
+            return val.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        }
+        return val.toFixed(2);
+    }
+
+    function formatGrowthBadge(val) {
+        if (val == null) return '-';
+        const isUp = val >= 0;
+        const cls = isUp ? 'up' : 'down';
+        const sign = isUp ? '+' : '';
+        return `<span class="growth-badge ${cls}">${sign}${val.toFixed(1)}%</span>`;
+    }
+
+    function formatMcapBadge(val) {
+        if (val == null) return '-';
+        let size, label;
+        if (val >= 50000) {
+            size = 'large';
+            label = (val / 100000).toFixed(1) + ' L Cr';
+        } else if (val >= 5000) {
+            size = 'mid';
+            label = (val / 1000).toFixed(1) + ' K Cr';
+        } else {
+            size = 'small';
+            label = val.toLocaleString('en-IN', { maximumFractionDigits: 0 }) + ' Cr';
+        }
+        return `<span class="mcap-badge ${size}">${label}</span>`;
+    }
+
+    function formatPctFrom52WH(val) {
+        if (val == null) return '-';
+        const cls = val >= -5 ? 'positive' : val >= -15 ? '' : 'negative';
+        return `<span class="${cls}">${val.toFixed(1)}%</span>`;
+    }
+
+    function formatRsBadge(val) {
+        if (val == null) return '-';
+        let cls;
+        if (val >= 70) cls = 'high';
+        else if (val >= 40) cls = 'medium';
+        else cls = 'low';
+        return `<span class="rs-badge ${cls}">${val.toFixed(0)}</span>`;
+    }
+
+    function resetFilters() {
+        loadPreset('custom');  // Reset clears all filters
+    }
+
+    // Switch to Custom preset when user manually changes any filter
+    function switchToCustomOnChange() {
+        if (currentPreset !== 'custom') {
+            currentPreset = 'custom';
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.preset === 'custom');
+            });
+        }
+    }
+
+    function updateQuarterDisplay() {
+        const quarterFilter = document.getElementById("quarter-filter").value;
+        const infoEl = document.getElementById("quarter-info");
+        if (quarterFilter === "current") {
+            loadQuarterInfo();
+        } else {
+            const [q, fy] = quarterFilter.split("-");
+            infoEl.textContent = `${q} FY${fy.slice(-2)} Results`;
+        }
+    }
+
+    // Load on page load
+    document.addEventListener("DOMContentLoaded", function() {
+        loadQuarterInfo();
+        loadPreset('quick');
+
+        // Update display when quarter changes
+        document.getElementById("quarter-filter").addEventListener("change", function() {
+            updateQuarterDisplay();
+            switchToCustomOnChange();
+        });
+
+        // Add change listeners to all filter inputs to auto-switch to Custom
+        const filterInputs = [
+            'min-pat-yoy', 'min-pat-qoq', 'min-revenue-yoy', 'min-revenue-qoq',
+            'min-pbt-yoy', 'min-pbt-qoq', 'min-mcap', 'max-mcap', 'min-pct-change',
+            'sort-by', 'result-type'
+        ];
+        filterInputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', switchToCustomOnChange);
+                el.addEventListener('change', switchToCustomOnChange);
+            }
+        });
+    });
+
+    // Logout handler
+    document.getElementById("logout-btn").addEventListener("click", async () => {
+        const refreshToken = localStorage.getItem("refresh_token");
+        if (refreshToken) {
+            try {
+                await fetch("/oauth-service/token/revoke", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ refreshToken: refreshToken })
+                });
+            } catch (e) { console.log("Token revoke failed:", e); }
+        }
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        window.location.href = "index.html";
+    });
+</script>
+</body>
+</html>

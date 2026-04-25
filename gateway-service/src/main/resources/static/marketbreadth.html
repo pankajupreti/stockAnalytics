@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Market Breadth</title>
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
     <style>
         /* ====== shared look to match dashboard ====== */
         :root {
@@ -17,22 +18,23 @@
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); }
 
-        /* Navbar (same as dashboard) */
+        /* Navbar */
         .navbar {
-          background: var(--nav);
+          background: #0f172a;
           color: #fff;
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 12px 18px;
+          position: sticky;
+          top: 0;
+          z-index: 100;
         }
         .navbar .brand { font-weight: 700; letter-spacing: 0.3px; }
-        .navbar .links { display: flex; gap: 12px; }
-        .navbar a {
-          color: #cbd5e1; text-decoration: none; padding: 8px 10px; border-radius: 8px;
+        .navbar .links a {
+          color: #cbd5e1; text-decoration: none; padding: 8px 10px; border-radius: 8px; margin-left: 8px;
         }
-        .navbar a.active, .navbar a:hover { color: #fff; background: rgba(255,255,255,0.1); }
-        .navbar .right { display: flex; gap: 8px; }
+        .navbar .links a.active, .navbar .links a:hover { color: #fff; background: rgba(255,255,255,0.1); }
         .btn { padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
         .btn-secondary { background: #e5e7eb; color: #111827; }
         .btn-secondary:hover { background: #d1d5db; }
@@ -86,11 +88,17 @@
     <div class="brand">Stock Analytics</div>
     <div class="links">
         <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
         <a href="marketbreadth.html" class="active">Market Breadth</a>
         <a href="portfolio.html">Portfolio</a>
-    </div>
-    <div class="right">
-        <button id="logout-btn" class="btn btn-secondary">Logout</button>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html">Health</a>
     </div>
 </div>
 
@@ -114,8 +122,57 @@
     </table>
 </div>
 
+<!-- Industry Leaders Section -->
+<h2>Industry Leaders</h2>
+<p style="margin: 0 20px 10px; color: var(--muted); font-size: 13px;">
+    Industries sorted by average daily change. Click to drill down into stocks.
+</p>
+
+<div class="card" style="overflow-x: auto;">
+    <table id="sector-table">
+        <thead>
+            <tr>
+                <th style="width:25%;">Industry</th>
+                <th style="width:10%; text-align:right;">Stocks</th>
+                <th style="width:10%; text-align:right;">Avg %</th>
+                <th style="width:10%; text-align:right;">Green %</th>
+                <th style="width:45%;">Top Gainers</th>
+            </tr>
+        </thead>
+        <tbody id="sector-tbody">
+        <!-- rows injected by JS -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Drill-down Modal -->
+<div id="sector-modal-backdrop" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+    <div style="background:#fff; border-radius:12px; width:90%; max-width:900px; max-height:85vh; overflow:hidden; display:flex; flex-direction:column;">
+        <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+            <h3 id="sector-modal-title" style="margin:0;">Industry Stocks</h3>
+            <button onclick="closeSectorModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:16px 20px; overflow-y:auto; flex:1;">
+            <table style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Name</th>
+                        <th style="text-align:right;">CMP</th>
+                        <th style="text-align:right;">Daily %</th>
+                        <th style="text-align:right;">MCap (Cr)</th>
+                    </tr>
+                </thead>
+                <tbody id="sector-stocks-tbody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div class="note">Calculated from your latest stock data snapshot.</div>
 
+<script src="token-utils.js"></script>
 <script src="marketbreadth.js" defer></script>
 </body>
 </html>

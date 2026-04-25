@@ -1,0 +1,57 @@
+# Maven build output
+target/
+*/target/
+
+# Logs
+logs/
+*.log
+
+# Compiled files
+*.class
+*.jar
+*.war
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+~$*
+
+# Env / local config
+.env
+*.local
+.claude/settings.local.json
+
+# Secrets & credentials
+**/credentials*.json
+**/keystore.jks
+**/secrets/
+cacerts
+cookies.txt
+
+# Test/temp files
+*.pdf
+*.docx
+result/
+nul
+
+# Local-only scripts
+query_snapshots.bat
+restart.bat
+logs.bat
+*.bat.bak
+
+# Maven wrapper jar (keep wrapper scripts)
+!.mvn/wrapper/maven-wrapper.jar
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
