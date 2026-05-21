@@ -16,8 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Locale;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -163,6 +163,7 @@ public class TransactionService {
                 .transactionDate(sellDate)
                 .realizedPnl(realizedPnl)
                 .avgBuyPriceAtSell(avgBuyPrice)
+                .positionId(position.getId())
                 .notes(req.getNotes())
                 .build();
         tx = transactionRepository.save(tx);
@@ -201,20 +202,83 @@ public class TransactionService {
      * Get only SELL transactions (for P&L report)
      */
     public List<TransactionDTO> getSellTransactions(String userSub) {
-        return transactionRepository.findSellTransactions(userSub)
+        List<TransactionDTO> sells = transactionRepository.findSellTransactions(userSub)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+        enrichWithBuyDates(sells);
+        return sells;
     }
 
     /**
      * Get SELL transactions within date range
      */
     public List<TransactionDTO> getSellTransactionsInRange(String userSub, LocalDate from, LocalDate to) {
-        return transactionRepository.findSellTransactionsInRange(userSub, from, to)
+        List<TransactionDTO> sells = transactionRepository.findSellTransactionsInRange(userSub, from, to)
                 .stream()
                 .map(this::toDTO)
                 .collect(Collectors.toList());
+        enrichWithBuyDates(sells);
+        return sells;
+    }
+
+    /**
+     * Enrich sell transactions with buy date and holding days
+     */
+    private void enrichWithBuyDates(List<TransactionDTO> sells) {
+        if (sells.isEmpty()) return;
+
+        // 1. For sells with positionId, batch-load buy dates
+        List<Long> positionIds = sells.stream()
+                .map(TransactionDTO::getPositionId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, LocalDate> buyDateMap = new HashMap<>();
+        if (!positionIds.isEmpty()) {
+            for (Object[] row : transactionRepository.findBuyDatesByPositionIds(positionIds)) {
+                buyDateMap.put((Long) row[0], (LocalDate) row[1]);
+            }
+        }
+
+        // 2. For sells without positionId, find earliest BUY date by ticker
+        Set<String> tickersWithoutPosition = sells.stream()
+                .filter(s -> s.getPositionId() == null)
+                .map(TransactionDTO::getTicker)
+                .collect(java.util.stream.Collectors.toSet());
+
+        Map<String, LocalDate> tickerBuyDateMap = new HashMap<>();
+        if (!tickersWithoutPosition.isEmpty()) {
+            String userSub = sells.get(0).getTicker() != null ? null : null; // need userSub
+            // Fetch all BUY transactions for these tickers and find earliest buy date per ticker
+            for (String ticker : tickersWithoutPosition) {
+                List<Transaction> buys = transactionRepository.findByTickerAndTypeOrderByTransactionDateAsc(
+                        ticker, TransactionType.BUY);
+                if (!buys.isEmpty()) {
+                    tickerBuyDateMap.put(ticker.toUpperCase(), buys.get(0).getTransactionDate());
+                }
+            }
+        }
+
+        for (TransactionDTO s : sells) {
+            LocalDate buyDate = null;
+
+            if (s.getPositionId() != null) {
+                buyDate = buyDateMap.get(s.getPositionId());
+            }
+            if (buyDate == null && s.getTicker() != null) {
+                buyDate = tickerBuyDateMap.get(s.getTicker().toUpperCase());
+            }
+
+            if (buyDate != null) {
+                s.setBuyDate(buyDate);
+                if (s.getTransactionDate() != null) {
+                    long days = ChronoUnit.DAYS.between(buyDate, s.getTransactionDate());
+                    s.setHoldingDays(days >= 0 ? days : null);
+                }
+            }
+        }
     }
 
     /**

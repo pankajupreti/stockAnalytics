@@ -673,11 +673,24 @@ async function fetchDashboard() {
 
     renderDashboard(stocks, !!anchorDate);
     updateActiveFiltersDisplay();
+
+    // Update "last refreshed" timestamp
+    const tsEl = document.getElementById("last-refresh-time");
+    if (tsEl) {
+      const now = new Date();
+      tsEl.textContent = "Updated " + now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    }
   } catch (err) {
     console.error("Dashboard fetch failed:", err);
     // fetchWithAuth handles session expiry and redirect to login
   }
 }
+
+// Auto-refresh dashboard every 5 minutes (backend updates prices via Google Sheets + Yahoo Finance)
+setInterval(() => {
+  const token = localStorage.getItem(tokenKey);
+  if (token) fetchDashboard();
+}, 5 * 60 * 1000);
 
 /**
  * Fetch anchor prices and blend with stock data.
@@ -743,6 +756,7 @@ async function blendAnchorPrices(stocks, anchorDate) {
 // --- Render table ---
 function renderDashboard(stocks, showAnchorColumn = false) {
   const container = document.getElementById("dashboard-content");
+  container.classList.remove("loading");
   if (!stocks.length) {
     container.innerHTML = '<div class="no-data">No stocks found matching your criteria</div>';
     return;

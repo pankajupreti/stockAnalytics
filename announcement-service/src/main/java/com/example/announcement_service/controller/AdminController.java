@@ -2,6 +2,7 @@ package com.example.announcement_service.controller;
 
 import com.example.announcement_service.model.TickerMapping;
 import com.example.announcement_service.repository.AnnouncementRepository;
+import com.example.announcement_service.service.AnnouncementService;
 import com.example.announcement_service.service.StockMatchingService;
 import com.example.announcement_service.service.TickerMappingService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class AdminController {
     private final TickerMappingService tickerMappingService;
     private final StockMatchingService stockMatchingService;
     private final AnnouncementRepository announcementRepository;
+    private final AnnouncementService announcementService;
 
     /**
      * Upload BSE Equity List CSV to populate ticker mappings.
@@ -461,48 +463,12 @@ public class AdminController {
 
         List<Object[]> missing = announcementRepository.findMissingMappings(afterDate);
 
-        int discovered = 0;
-        int failed = 0;
-        List<Map<String, String>> results = new ArrayList<>();
+        int discovered = tickerMappingService.discoverMissingMappings(missing, limit);
 
-        for (int i = 0; i < Math.min(missing.size(), limit); i++) {
-            Object[] row = missing.get(i);
-            String scripCode = row[0] != null ? row[0].toString() : "";
-            String companyName = row[1] != null ? row[1].toString() : "";
-
-            if (scripCode.isEmpty()) continue;
-
-            try {
-                // Try to fetch ticker from BSE API
-                String nseTicker = fetchTickerFromBse(scripCode);
-
-                if (nseTicker != null && !nseTicker.isEmpty()) {
-                    tickerMappingService.saveMapping(scripCode, nseTicker, companyName, null);
-                    discovered++;
-
-                    Map<String, String> result = new HashMap<>();
-                    result.put("scripCode", scripCode);
-                    result.put("nseTicker", nseTicker);
-                    result.put("companyName", companyName);
-                    result.put("status", "discovered");
-                    results.add(result);
-
-                    log.info("Discovered mapping: {} -> {}", scripCode, nseTicker);
-                } else {
-                    failed++;
-                    Map<String, String> result = new HashMap<>();
-                    result.put("scripCode", scripCode);
-                    result.put("companyName", companyName);
-                    result.put("status", "not_found");
-                    results.add(result);
-                }
-
-                // Rate limiting
-                Thread.sleep(200);
-            } catch (Exception e) {
-                failed++;
-                log.warn("Failed to discover ticker for {}: {}", scripCode, e.getMessage());
-            }
+        // Backfill announcements with newly discovered mappings
+        int backfilled = 0;
+        if (discovered > 0) {
+            backfilled = announcementService.updateMissingNseTickers();
         }
 
         return ResponseEntity.ok(Map.of(
@@ -510,60 +476,7 @@ public class AdminController {
                 "totalMissing", missing.size(),
                 "processed", Math.min(missing.size(), limit),
                 "discovered", discovered,
-                "failed", failed,
-                "results", results
+                "backfilled", backfilled
         ));
-    }
-
-    /**
-     * Fetch NSE ticker from BSE API for a given scrip code.
-     */
-    private String fetchTickerFromBse(String scripCode) {
-        try {
-            // BSE API to get stock info
-            String apiUrl = "https://api.bseindia.com/BseIndiaAPI/api/StockReachGraph/w?scripcode=" + scripCode + "&flag=0&fromdate=&todate=&seression=";
-
-            java.net.URL url = new java.net.URL(apiUrl);
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-            conn.setRequestProperty("Accept", "application/json");
-            conn.setRequestProperty("Referer", "https://www.bseindia.com/");
-
-            int responseCode = conn.getResponseCode();
-            if (responseCode != 200) {
-                return null;
-            }
-
-            StringBuilder response = new StringBuilder();
-            try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(conn.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-            }
-
-            // Parse response to find ticker/securityId
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response.toString());
-
-            // BSE API returns secid as the ticker symbol
-            if (root.has("Comp_secid")) {
-                return root.get("Comp_secid").asText();
-            } else if (root.has("secid")) {
-                return root.get("secid").asText();
-            } else if (root.has("SC_ID")) {
-                return root.get("SC_ID").asText();
-            }
-
-            return null;
-
-        } catch (Exception e) {
-            log.debug("Failed to fetch ticker from BSE for {}: {}", scripCode, e.getMessage());
-            return null;
-        }
     }
 }

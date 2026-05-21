@@ -692,6 +692,38 @@ public class TestController {
     }
 
     /**
+     * Auto-discover missing ticker mappings from BSE API.
+     * POST /api/test/auto-discover-mappings?days=30&limit=2000
+     */
+    @PostMapping("/auto-discover-mappings")
+    public ResponseEntity<Map<String, Object>> autoDiscoverMappings(
+            @RequestParam(defaultValue = "30") int days,
+            @RequestParam(defaultValue = "100") int limit) {
+
+        log.info("Manually triggered auto-discover for missing ticker mappings (days={}, limit={})", days, limit);
+
+        LocalDateTime afterDate = LocalDateTime.now().minusDays(days);
+        java.util.List<Object[]> missing = announcementRepository.findMissingMappings(afterDate);
+
+        log.info("Found {} scrip codes with announcements but no ticker mapping", missing.size());
+
+        int discovered = tickerMappingService.discoverMissingMappings(missing, limit);
+
+        int backfilled = 0;
+        if (discovered > 0) {
+            backfilled = announcementService.updateMissingNseTickers();
+        }
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "completed");
+        response.put("totalMissing", missing.size());
+        response.put("processed", Math.min(missing.size(), limit));
+        response.put("discovered", discovered);
+        response.put("backfilled", backfilled);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Pre-fetch prices for all financial result announcements.
      * This populates the price cache for faster PEAD scanner loads.
      * POST /api/test/prefetch-prices?days=30

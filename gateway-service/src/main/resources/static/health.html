@@ -10,8 +10,8 @@
         body {
             font-family: 'Inter', 'Segoe UI', -apple-system, sans-serif;
             margin: 0;
-            background: #0f172a;
-            color: #e2e8f0;
+            background: #f9fafb;
+            color: #111827;
             min-height: 100vh;
         }
 
@@ -33,62 +33,62 @@
         }
         .navbar .links a.active, .navbar .links a:hover { color: #fff; background: rgba(255,255,255,.1); }
 
-        .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        .wrap { max-width: 1400px; margin: 0 auto; padding: 20px; }
 
         .header-row {
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 24px;
         }
-        .header-row h1 { margin: 0; font-size: 24px; color: #f1f5f9; }
+        .header-row h1 { margin: 0; font-size: 24px; color: #111827; }
         .overall-badge {
             padding: 8px 20px; border-radius: 20px; font-weight: 700; font-size: 14px;
             text-transform: uppercase; letter-spacing: 0.5px;
         }
-        .overall-badge.healthy { background: #065f46; color: #6ee7b7; }
-        .overall-badge.degraded { background: #78350f; color: #fcd34d; }
-        .overall-badge.down { background: #7f1d1d; color: #fca5a5; }
+        .overall-badge.healthy { background: #d1fae5; color: #065f46; }
+        .overall-badge.degraded { background: #fef3c7; color: #92400e; }
+        .overall-badge.down { background: #fee2e2; color: #991b1b; }
 
         .summary-cards {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 14px; margin-bottom: 28px;
         }
         .summary-card {
-            background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
             padding: 16px; text-align: center;
         }
-        .summary-card .label { font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
+        .summary-card .label { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
         .summary-card .value { font-size: 24px; font-weight: 700; }
-        .summary-card .value.green { color: #34d399; }
-        .summary-card .value.red { color: #f87171; }
-        .summary-card .value.yellow { color: #fbbf24; }
-        .summary-card .value.blue { color: #60a5fa; }
+        .summary-card .value.green { color: #059669; }
+        .summary-card .value.red { color: #dc2626; }
+        .summary-card .value.yellow { color: #d97706; }
+        .summary-card .value.blue { color: #2563eb; }
 
         .services-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
             gap: 16px; margin-bottom: 28px;
         }
         .service-card {
-            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
             padding: 18px; transition: border-color 0.3s;
         }
-        .service-card.up { border-left: 4px solid #34d399; }
-        .service-card.down { border-left: 4px solid #f87171; }
-        .service-card.checking { border-left: 4px solid #94a3b8; }
+        .service-card.up { border-left: 4px solid #059669; }
+        .service-card.down { border-left: 4px solid #dc2626; }
+        .service-card.checking { border-left: 4px solid #9ca3af; }
 
         .service-header {
             display: flex; align-items: center; justify-content: space-between;
             margin-bottom: 12px;
         }
-        .service-name { font-weight: 700; font-size: 15px; color: #f1f5f9; }
-        .service-port { font-size: 12px; color: #64748b; font-family: monospace; }
+        .service-name { font-weight: 700; font-size: 15px; color: #111827; }
+        .service-port { font-size: 12px; color: #6b7280; font-family: monospace; }
 
         .status-dot {
             width: 10px; height: 10px; border-radius: 50%; display: inline-block;
             margin-right: 6px;
         }
-        .status-dot.up { background: #34d399; box-shadow: 0 0 6px #34d399; }
-        .status-dot.down { background: #f87171; box-shadow: 0 0 6px #f87171; }
-        .status-dot.checking { background: #94a3b8; animation: pulse 1.5s infinite; }
+        .status-dot.up { background: #059669; box-shadow: 0 0 6px #059669; }
+        .status-dot.down { background: #dc2626; box-shadow: 0 0 6px #dc2626; }
+        .status-dot.checking { background: #9ca3af; animation: pulse 1.5s infinite; }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -96,17 +96,17 @@
         }
 
         .status-text { font-size: 13px; font-weight: 600; }
-        .status-text.up { color: #34d399; }
-        .status-text.down { color: #f87171; }
-        .status-text.checking { color: #94a3b8; }
+        .status-text.up { color: #059669; }
+        .status-text.down { color: #dc2626; }
+        .status-text.checking { color: #6b7280; }
 
-        .service-details { font-size: 12px; color: #94a3b8; }
+        .service-details { font-size: 12px; color: #6b7280; }
         .service-details .row {
             display: flex; justify-content: space-between; padding: 4px 0;
-            border-bottom: 1px solid #1e293b;
+            border-bottom: 1px solid #f3f4f6;
         }
         .service-details .row:last-child { border-bottom: none; }
-        .service-details .val { color: #cbd5e1; font-family: monospace; }
+        .service-details .val { color: #374151; font-family: monospace; }
 
         .refresh-bar {
             display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
@@ -117,27 +117,27 @@
         }
         .btn-primary { background: #3b82f6; color: white; }
         .btn-primary:hover { background: #2563eb; }
-        .btn-outline { background: transparent; border: 1px solid #475569; color: #94a3b8; }
-        .btn-outline:hover { border-color: #64748b; color: #e2e8f0; }
+        .btn-outline { background: #fff; border: 1px solid #e5e7eb; color: #374151; }
+        .btn-outline:hover { border-color: #d1d5db; color: #111827; }
 
-        .auto-refresh { font-size: 12px; color: #64748b; }
-        .last-check { font-size: 12px; color: #64748b; }
+        .auto-refresh { font-size: 12px; color: #6b7280; }
+        .last-check { font-size: 12px; color: #6b7280; }
 
         .log-section {
-            background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
             padding: 18px; margin-top: 20px;
         }
-        .log-section h3 { margin: 0 0 12px; font-size: 15px; color: #f1f5f9; }
+        .log-section h3 { margin: 0 0 12px; font-size: 15px; color: #111827; }
         .log-entries {
             max-height: 300px; overflow-y: auto; font-family: monospace;
             font-size: 12px; line-height: 1.6;
         }
         .log-entry { padding: 2px 0; }
-        .log-entry .time { color: #64748b; }
-        .log-entry .svc { color: #60a5fa; font-weight: 600; }
-        .log-entry.error .msg { color: #f87171; }
-        .log-entry.success .msg { color: #34d399; }
-        .log-entry.warn .msg { color: #fbbf24; }
+        .log-entry .time { color: #6b7280; }
+        .log-entry .svc { color: #2563eb; font-weight: 600; }
+        .log-entry.error .msg { color: #dc2626; }
+        .log-entry.success .msg { color: #059669; }
+        .log-entry.warn .msg { color: #d97706; }
     </style>
 </head>
 <body>
@@ -156,7 +156,7 @@
         <a href="results-analysis.html">Results</a>
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
-        <a href="health.html" class="active">Health</a>
+        <a href="health.html" class="active admin-only">Health</a>
     </div>
 </div>
 
@@ -202,7 +202,16 @@
     </div>
 </div>
 
+<script src="token-utils.js"></script>
 <script>
+// Admin-only page: redirect non-admin users
+document.addEventListener("DOMContentLoaded", function() {
+    if (!window.TokenUtils || !window.TokenUtils.isAdmin()) {
+        window.location.href = "dashboard.html";
+        return;
+    }
+});
+
 let autoRefreshInterval = null;
 let logEntries = [];
 

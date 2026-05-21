@@ -433,16 +433,16 @@ public class ResultsService {
 
     private void calculateQoQ(ParsedResult current, ParsedResult prev) {
         if (prev.getRevenue() != null && prev.getRevenue() != 0 && current.getRevenue() != null) {
-            current.setRevenueQoQ(((current.getRevenue() - prev.getRevenue()) / prev.getRevenue()) * 100);
+            current.setRevenueQoQ(((current.getRevenue() - prev.getRevenue()) / Math.abs(prev.getRevenue())) * 100);
         }
         if (prev.getEbitda() != null && prev.getEbitda() != 0 && current.getEbitda() != null) {
-            current.setEbitdaQoQ(((current.getEbitda() - prev.getEbitda()) / prev.getEbitda()) * 100);
+            current.setEbitdaQoQ(((current.getEbitda() - prev.getEbitda()) / Math.abs(prev.getEbitda())) * 100);
         }
         if (prev.getPat() != null && prev.getPat() != 0 && current.getPat() != null) {
-            current.setPatQoQ(((current.getPat() - prev.getPat()) / prev.getPat()) * 100);
+            current.setPatQoQ(((current.getPat() - prev.getPat()) / Math.abs(prev.getPat())) * 100);
         }
         if (prev.getEpsBasic() != null && prev.getEpsBasic() != 0 && current.getEpsBasic() != null) {
-            current.setEpsQoQ(((current.getEpsBasic() - prev.getEpsBasic()) / prev.getEpsBasic()) * 100);
+            current.setEpsQoQ(((current.getEpsBasic() - prev.getEpsBasic()) / Math.abs(prev.getEpsBasic())) * 100);
         }
         if (prev.getEbitdaMargin() != null && current.getEbitdaMargin() != null) {
             current.setEbitdaMarginQoQPp(current.getEbitdaMargin() - prev.getEbitdaMargin());
@@ -451,22 +451,22 @@ public class ResultsService {
             current.setPatMarginQoQPp(current.getPatMargin() - prev.getPatMargin());
         }
         if (prev.getNii() != null && prev.getNii() != 0 && current.getNii() != null) {
-            current.setNiiQoQ(((current.getNii() - prev.getNii()) / prev.getNii()) * 100);
+            current.setNiiQoQ(((current.getNii() - prev.getNii()) / Math.abs(prev.getNii())) * 100);
         }
     }
 
     private void calculateYoY(ParsedResult current, ParsedResult yoy) {
         if (yoy.getRevenue() != null && yoy.getRevenue() != 0 && current.getRevenue() != null) {
-            current.setRevenueYoY(((current.getRevenue() - yoy.getRevenue()) / yoy.getRevenue()) * 100);
+            current.setRevenueYoY(((current.getRevenue() - yoy.getRevenue()) / Math.abs(yoy.getRevenue())) * 100);
         }
         if (yoy.getEbitda() != null && yoy.getEbitda() != 0 && current.getEbitda() != null) {
-            current.setEbitdaYoY(((current.getEbitda() - yoy.getEbitda()) / yoy.getEbitda()) * 100);
+            current.setEbitdaYoY(((current.getEbitda() - yoy.getEbitda()) / Math.abs(yoy.getEbitda())) * 100);
         }
         if (yoy.getPat() != null && yoy.getPat() != 0 && current.getPat() != null) {
-            current.setPatYoY(((current.getPat() - yoy.getPat()) / yoy.getPat()) * 100);
+            current.setPatYoY(((current.getPat() - yoy.getPat()) / Math.abs(yoy.getPat())) * 100);
         }
         if (yoy.getEpsBasic() != null && yoy.getEpsBasic() != 0 && current.getEpsBasic() != null) {
-            current.setEpsYoY(((current.getEpsBasic() - yoy.getEpsBasic()) / yoy.getEpsBasic()) * 100);
+            current.setEpsYoY(((current.getEpsBasic() - yoy.getEpsBasic()) / Math.abs(yoy.getEpsBasic())) * 100);
         }
         if (yoy.getEbitdaMargin() != null && current.getEbitdaMargin() != null) {
             current.setEbitdaMarginYoYPp(current.getEbitdaMargin() - yoy.getEbitdaMargin());
@@ -475,7 +475,7 @@ public class ResultsService {
             current.setPatMarginYoYPp(current.getPatMargin() - yoy.getPatMargin());
         }
         if (yoy.getNii() != null && yoy.getNii() != 0 && current.getNii() != null) {
-            current.setNiiYoY(((current.getNii() - yoy.getNii()) / yoy.getNii()) * 100);
+            current.setNiiYoY(((current.getNii() - yoy.getNii()) / Math.abs(yoy.getNii())) * 100);
         }
     }
 

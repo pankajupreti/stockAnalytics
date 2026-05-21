@@ -41,11 +41,12 @@
         .btn-primary { background: var(--primary); color: #fff; }
         .btn-primary:hover { background: #1d4ed8; }
 
-        /* Page blocks align with dashboard margins */
-        h2 { margin: 20px; color: var(--text); }
+        /* Page layout */
+        .wrap { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        h2 { margin: 0 0 14px; color: var(--text); }
         .filters {
           display: flex; gap: 10px; flex-wrap: wrap;
-          margin: 15px 20px;
+          margin: 0 0 15px;
           padding: 12px;
           background: var(--card);
           border: 1px solid var(--border);
@@ -56,7 +57,7 @@
 
         /* Card-like table (same visual weight as dashboard table) */
         .card {
-          margin: 0 20px 16px;
+          margin: 0 0 16px;
           background: var(--card);
           border: 1px solid var(--border);
           border-radius: 8px;
@@ -79,7 +80,7 @@
         .text-success { color: green; font-weight: 600; }
         .text-danger  { color: red;   font-weight: 600; }
 
-        .note { margin: 8px 20px 24px; font-size: 12px; color: var(--muted); }
+        .note { margin: 8px 0 24px; font-size: 12px; color: var(--muted); }
     </style>
 </head>
 <body>
@@ -98,51 +99,55 @@
         <a href="results-analysis.html">Results</a>
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
-        <a href="health.html">Health</a>
+        <a href="health.html" class="admin-only">Health</a>
     </div>
 </div>
 
-<h2>Market Breadth</h2>
+<div class="wrap">
+    <h2>Market Breadth</h2>
 
-<!-- Filters -->
-<div class="filters">
-    <input type="number" id="minMarketCap" placeholder="Min Market Cap (₹ Cr)">
-    <input type="number" id="t1" placeholder="Threshold 1 (%)" value="3">
-    <input type="number" id="t2" placeholder="Threshold 2 (%)" value="5">
-    <input type="number" id="t3" placeholder="Threshold 3 (%)" value="8">
-    <button id="apply" class="btn btn-primary">Apply</button>
-</div>
+    <!-- Filters -->
+    <div class="filters">
+        <input type="number" id="minMarketCap" placeholder="Min Market Cap (₹ Cr)">
+        <input type="number" id="t1" placeholder="Threshold 1 (%)" value="3">
+        <input type="number" id="t2" placeholder="Threshold 2 (%)" value="5">
+        <input type="number" id="t3" placeholder="Threshold 3 (%)" value="8">
+        <button id="apply" class="btn btn-primary">Apply</button>
+    </div>
 
-<!-- Card-wrapped table -->
-<div class="card">
-    <table>
-        <tbody id="breadth-table">
-        <!-- rows injected by JS -->
-        </tbody>
-    </table>
-</div>
+    <!-- Card-wrapped table -->
+    <div class="card">
+        <table>
+            <tbody id="breadth-table">
+            <!-- rows injected by JS -->
+            </tbody>
+        </table>
+    </div>
 
-<!-- Industry Leaders Section -->
-<h2>Industry Leaders</h2>
-<p style="margin: 0 20px 10px; color: var(--muted); font-size: 13px;">
-    Industries sorted by average daily change. Click to drill down into stocks.
-</p>
+    <!-- Industry Leaders Section -->
+    <h2>Industry Leaders</h2>
+    <p style="margin: 0 0 10px; color: var(--muted); font-size: 13px;">
+        Industries sorted by average daily change. Click to drill down into stocks.
+    </p>
 
-<div class="card" style="overflow-x: auto;">
-    <table id="sector-table">
-        <thead>
-            <tr>
-                <th style="width:25%;">Industry</th>
-                <th style="width:10%; text-align:right;">Stocks</th>
-                <th style="width:10%; text-align:right;">Avg %</th>
-                <th style="width:10%; text-align:right;">Green %</th>
-                <th style="width:45%;">Top Gainers</th>
-            </tr>
-        </thead>
-        <tbody id="sector-tbody">
-        <!-- rows injected by JS -->
-        </tbody>
-    </table>
+    <div class="card" style="overflow-x: auto;">
+        <table id="sector-table">
+            <thead>
+                <tr>
+                    <th style="width:25%;">Industry</th>
+                    <th style="width:10%; text-align:right;">Stocks</th>
+                    <th style="width:10%; text-align:right;">Avg %</th>
+                    <th style="width:10%; text-align:right;">Green %</th>
+                    <th style="width:45%;">Top Gainers</th>
+                </tr>
+            </thead>
+            <tbody id="sector-tbody">
+            <!-- rows injected by JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="note">Calculated from your latest stock data snapshot.</div>
 </div>
 
 <!-- Drill-down Modal -->
@@ -169,8 +174,6 @@
         </div>
     </div>
 </div>
-
-<div class="note">Calculated from your latest stock data snapshot.</div>
 
 <script src="token-utils.js"></script>
 <script src="marketbreadth.js" defer></script>

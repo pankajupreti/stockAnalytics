@@ -224,18 +224,21 @@ class ResultsQueueConsumer:
             await asyncio.sleep(3)  # 3 second delay between requests
 
             # Try to fetch from Screener.in
-            success = await self._fetch_and_cache_results(ticker, expected_quarter)
+            success, fail_reason = await self._fetch_and_cache_results(ticker, expected_quarter)
 
             if success:
                 logger.info(f"Successfully fetched results for {ticker}")
             else:
+                # Track the failure reason across retries
+                event["lastFailReason"] = fail_reason or "Unknown"
                 # Screener doesn't have data yet, schedule retry
                 if attempt_number < max_attempts:
                     await self._schedule_retry(event)
                 else:
                     # Max attempts reached - send to Dead Letter Queue
-                    logger.warning(f"Max attempts ({max_attempts}) reached for {ticker}, moving to DLQ")
-                    await self._send_to_dlq(event, "Max retry attempts exhausted")
+                    detail = fail_reason or "Unknown"
+                    logger.warning(f"Max attempts ({max_attempts}) reached for {ticker}, moving to DLQ. Reason: {detail}")
+                    await self._send_to_dlq(event, f"Max retries exhausted: {detail}")
 
             # Acknowledge message after successful processing
             await self._safe_ack(message)
@@ -247,11 +250,11 @@ class ResultsQueueConsumer:
             logger.error(f"Error processing message for {ticker}: {e}")
             await self._safe_nack(message, requeue=True)
 
-    async def _fetch_and_cache_results(self, ticker: str, expected_quarter: str = None) -> bool:
+    async def _fetch_and_cache_results(self, ticker: str, expected_quarter: str = None) -> tuple:
         """
         Fetch results from Screener.in and cache them.
-        Returns True if fresh data was found AND the expected quarter is present.
-        Returns False if expected quarter is missing (triggers retry).
+        Returns (True, None) if fresh data was found AND the expected quarter is present.
+        Returns (False, reason) if fetch failed or expected quarter is missing.
 
         Args:
             ticker: Stock ticker symbol
@@ -278,24 +281,33 @@ class ResultsQueueConsumer:
                             latest_normalized = latest_quarter.upper().replace(" ", "")
 
                             if expected_normalized != latest_normalized:
+                                reason = f"Quarter mismatch: expected {expected_quarter}, got {latest_quarter}"
                                 logger.warning(
-                                    f"Expected {expected_quarter} but latest is {latest_quarter} for {ticker} - "
-                                    f"Screener not updated yet, will retry"
+                                    f"{reason} for {ticker} - Screener not updated yet, will retry"
                                 )
-                                return False  # Trigger retry - Screener doesn't have new data yet
+                                return False, reason
 
                     # Save to database cache
                     saved = await self.database.save_results(ticker, results)
                     if saved:
                         logger.info(f"Cached {len(results)} quarters for {ticker}")
-                        return True
+                        return True, None
 
-            logger.info(f"No new results found for {ticker} on Screener.in")
-            return False
+            # Determine reason for no data
+            error_msg = result.get("error", "") if result else ""
+            if error_msg:
+                reason = f"Screener error: {error_msg}"
+            elif not result.get("success"):
+                reason = f"Screener fetch failed (ticker not found or page error)"
+            else:
+                reason = "No results data returned from Screener"
+            logger.info(f"No new results found for {ticker} on Screener.in: {reason}")
+            return False, reason
 
         except Exception as e:
+            reason = f"Exception: {str(e)}"
             logger.error(f"Error fetching results for {ticker}: {e}")
-            return False
+            return False, reason
 
     async def _schedule_retry(self, event: dict):
         """

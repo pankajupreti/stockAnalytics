@@ -17,10 +17,13 @@ import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Scheduled job to update prices for Yahoo-sourced stocks.
@@ -35,6 +38,12 @@ public class YahooPriceUpdateJob {
     private static final String SOURCE_YAHOO = "YAHOO";
 
     private final StockAnalyticsRepository repository;
+
+    // Status tracking for async refresh-all
+    private volatile boolean refreshAllRunning = false;
+    private final AtomicInteger refreshAllTotal = new AtomicInteger(0);
+    private final AtomicInteger refreshAllDone = new AtomicInteger(0);
+    private final AtomicInteger refreshAllSuccess = new AtomicInteger(0);
 
     @Value("${yahoo.price.update.enabled:true}")
     private boolean priceUpdateEnabled;
@@ -76,7 +85,7 @@ public class YahooPriceUpdateJob {
 
         log.info("Updating prices for {} YAHOO-sourced stocks", yahooStocks.size());
 
-        int parallelThreads = 10;
+        int parallelThreads = 50;
         ExecutorService executor = Executors.newFixedThreadPool(parallelThreads);
 
         List<CompletableFuture<Boolean>> futures = new ArrayList<>();
@@ -367,7 +376,7 @@ public class YahooPriceUpdateJob {
             return 0;
         }
 
-        ExecutorService executor = Executors.newFixedThreadPool(Math.min(stocks.size(), 10));
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(stocks.size(), 50));
         List<CompletableFuture<Boolean>> futures = new ArrayList<>();
 
         for (StockAnalytics stock : stocks) {
@@ -384,5 +393,74 @@ public class YahooPriceUpdateJob {
         executor.shutdown();
         log.info("Refreshed {}/{} tickers from Yahoo", success, stocks.size());
         return success;
+    }
+
+    /**
+     * Update prices for ALL stocks in the database asynchronously.
+     * Returns immediately with total count; poll getRefreshAllStatus() for progress.
+     */
+    public Map<String, Object> refreshAllAsync() {
+        if (refreshAllRunning) {
+            return Map.of("status", "already_running",
+                    "total", refreshAllTotal.get(),
+                    "done", refreshAllDone.get(),
+                    "success", refreshAllSuccess.get());
+        }
+
+        List<StockAnalytics> allStocks = repository.findAll();
+        if (allStocks.isEmpty()) {
+            return Map.of("status", "no_stocks", "total", 0);
+        }
+
+        refreshAllRunning = true;
+        refreshAllTotal.set(allStocks.size());
+        refreshAllDone.set(0);
+        refreshAllSuccess.set(0);
+
+        CompletableFuture.runAsync(() -> {
+            log.info("Refresh-all started for {} stocks", allStocks.size());
+            ExecutorService executor = Executors.newFixedThreadPool(50);
+
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (StockAnalytics stock : allStocks) {
+                futures.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        if (updateStockPrice(stock)) {
+                            refreshAllSuccess.incrementAndGet();
+                        }
+                    } catch (Exception e) {
+                        // continue
+                    } finally {
+                        refreshAllDone.incrementAndGet();
+                    }
+                }, executor));
+            }
+
+            try {
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                        .get(10, TimeUnit.MINUTES);
+            } catch (Exception e) {
+                log.warn("Refresh-all timed out or failed: {}", e.getMessage());
+            }
+
+            executor.shutdown();
+            refreshAllRunning = false;
+            log.info("Refresh-all completed: {}/{} updated", refreshAllSuccess.get(), allStocks.size());
+        });
+
+        return Map.of("status", "started",
+                "total", allStocks.size());
+    }
+
+    /**
+     * Get the current status of an async refresh-all operation.
+     */
+    public Map<String, Object> getRefreshAllStatus() {
+        return Map.of(
+                "running", refreshAllRunning,
+                "total", refreshAllTotal.get(),
+                "done", refreshAllDone.get(),
+                "success", refreshAllSuccess.get()
+        );
     }
 }

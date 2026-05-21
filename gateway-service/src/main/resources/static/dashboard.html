@@ -452,7 +452,7 @@
         <a href="results-analysis.html">Results</a>
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
-        <a href="health.html">Health</a>
+        <a href="health.html" class="admin-only">Health</a>
     </div>
 </div>
 
@@ -463,7 +463,7 @@
             <div class="subtitle" id="welcome-text">Welcome!</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
-            <button id="btn-yahoo-refresh" class="btn-secondary" title="Fetch live prices from Yahoo Finance">Refresh Prices</button>
+            <span id="last-refresh-time" style="font-size:12px;color:#94a3b8;" title="Dashboard auto-refreshes every 5 minutes"></span>
             <button id="logout-btn" class="btn-logout">Logout</button>
         </div>
     </div>
@@ -605,50 +605,8 @@
 
         if (logoutBtn) logoutBtn.addEventListener("click", doLogout);
 
-        // Refresh Prices via Yahoo Finance
-        const refreshBtn = document.getElementById("btn-yahoo-refresh");
-        if (refreshBtn) {
-            refreshBtn.addEventListener("click", async function () {
-                refreshBtn.textContent = "Refreshing...";
-                refreshBtn.disabled = true;
-                try {
-                    // Get all tickers from the dashboard table (2nd column of each row)
-                    const rows = document.querySelectorAll("#dashboard-content table tbody tr");
-                    const tickers = [];
-                    rows.forEach(row => {
-                        const cells = row.querySelectorAll("td");
-                        if (cells.length >= 2) {
-                            const t = cells[1].textContent.trim();
-                            if (t && t !== "-") tickers.push(t);
-                        }
-                    });
-
-                    if (tickers.length === 0) {
-                        refreshBtn.textContent = "No stocks";
-                        setTimeout(() => { refreshBtn.textContent = "Refresh Prices"; refreshBtn.disabled = false; }, 1500);
-                        return;
-                    }
-
-                    // Call Yahoo refresh endpoint
-                    const url = "/sheet-import-service/api/yahoo/refresh-prices?tickers=" + tickers.join(",");
-                    const res = await fetchWithAuth(url, { method: "POST" });
-                    const data = await res.json();
-
-                    refreshBtn.textContent = "Updated " + data.updatedCount + "/" + data.requestedCount;
-
-                    // Reload dashboard to show fresh prices
-                    if (typeof fetchDashboard === "function") {
-                        await fetchDashboard();
-                    }
-
-                    setTimeout(() => { refreshBtn.textContent = "Refresh Prices"; refreshBtn.disabled = false; }, 2000);
-                } catch (e) {
-                    console.error("Yahoo refresh failed:", e);
-                    refreshBtn.textContent = "Failed";
-                    setTimeout(() => { refreshBtn.textContent = "Refresh Prices"; refreshBtn.disabled = false; }, 2000);
-                }
-            });
-        }
+        // Price auto-refresh is handled by app.js (every 5 minutes)
+        // Backend updates prices via Google Sheets + Yahoo Finance scheduled jobs
     });
 </script>
 <script src="token-utils.js"></script>

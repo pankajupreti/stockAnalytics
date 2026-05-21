@@ -70,7 +70,16 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
            "WHERE t.positionId IN :positionIds AND t.type = 'BUY' GROUP BY t.positionId")
     List<Object[]> findBuyDatesByPositionIds(@Param("positionIds") List<Long> positionIds);
 
+    /** BUY transactions for a ticker, ordered by date (for buy date lookup when positionId is null) */
+    List<Transaction> findByTickerAndTypeOrderByTransactionDateAsc(String ticker, TransactionType type);
+
     /** Sum of all BUY transaction values (price × quantity) up to a specific date */
     @Query("SELECT COALESCE(SUM(t.price * t.quantity), 0) FROM Transaction t WHERE t.userSub = :userSub AND t.type = 'BUY' AND t.transactionDate <= :asOfDate")
     java.math.BigDecimal getTotalInvestedAsOfDate(@Param("userSub") String userSub, @Param("asOfDate") java.time.LocalDate asOfDate);
+
+    /** Sum of all BUY transaction values by created_at date (when actually added to system).
+     *  Used for chart recalculation so capital is attributed to the snapshot date when the stock's
+     *  market value first appears, not the historical buy date. */
+    @Query("SELECT COALESCE(SUM(t.price * t.quantity), 0) FROM Transaction t WHERE t.userSub = :userSub AND t.type = 'BUY' AND CAST(t.createdAt AS date) <= :asOfDate")
+    java.math.BigDecimal getTotalInvestedByCreatedDate(@Param("userSub") String userSub, @Param("asOfDate") java.time.LocalDate asOfDate);
 }

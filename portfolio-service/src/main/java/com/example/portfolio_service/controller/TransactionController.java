@@ -4,6 +4,7 @@ import com.example.portfolio_service.dto.AddSharesRequest;
 import com.example.portfolio_service.dto.SellRequest;
 import com.example.portfolio_service.dto.TransactionDTO;
 import com.example.portfolio_service.model.Transaction;
+import com.example.portfolio_service.repository.PositionRepository;
 import com.example.portfolio_service.repository.TransactionRepository;
 import com.example.portfolio_service.security.CurrentUser;
 import com.example.portfolio_service.service.TransactionService;
@@ -26,6 +27,7 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final TransactionRepository transactionRepository;
+    private final PositionRepository positionRepository;
     private final CurrentUser currentUser;
 
     /**
@@ -62,6 +64,31 @@ public class TransactionController {
     @GetMapping
     public List<TransactionDTO> getAllTransactions(Authentication auth) {
         return transactionService.getTransactions(currentUser.sub(auth));
+    }
+
+    /**
+     * Get BUY transactions for active positions (for portfolio expand/split view)
+     */
+    @GetMapping("/buys/active")
+    public Map<String, List<TransactionDTO>> getActiveBuyTransactions(Authentication auth) {
+        String userSub = currentUser.sub(auth);
+        List<Transaction> buys = transactionRepository
+                .findByUserSubAndTypeOrderByTransactionDateAsc(userSub, Transaction.TransactionType.BUY);
+
+        // Get active position IDs to filter out buys for fully-sold (deleted) positions
+        Set<Long> activePositionIds = positionRepository.findByUserSubOrderByIdAsc(userSub)
+                .stream().map(p -> p.getId()).collect(java.util.stream.Collectors.toSet());
+
+        // Group by ticker, only include buys whose position still exists
+        Map<String, List<TransactionDTO>> result = new LinkedHashMap<>();
+        for (Transaction tx : buys) {
+            if (tx.getPositionId() != null && !activePositionIds.contains(tx.getPositionId())) {
+                continue; // Skip buys for deleted/fully-sold positions
+            }
+            result.computeIfAbsent(tx.getTicker().toUpperCase(), k -> new ArrayList<>())
+                    .add(toDTO(tx));
+        }
+        return result;
     }
 
     /**

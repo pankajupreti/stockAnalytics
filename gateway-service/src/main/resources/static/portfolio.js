@@ -7,6 +7,7 @@ const API_BASE =
 let sortState = { column: null, asc: true };
 let positions = [];     // cache of positions from API
 let editingId = null;   // null => create, otherwise update
+let expandedTickers = new Set();  // tickers with sub-rows expanded
 let cmpMap = {};        // CMP cache (if your backend provides, wire it here)
 let dayPctMap = {};      // ticker -> daily change % (e.g. +1.23 or -0.75)
 let announcementCounts = {};  // ticker -> announcement count
@@ -15,6 +16,8 @@ let alertCounts = {};         // ticker -> alert count
 let triggeredAlerts = [];     // list of triggered alerts for notification bell
 let notifDropdownOpen = false;
 let resultsData = {};         // ticker -> results summary (quarterLabel, patYoY, trend)
+let buyTransactions = {};    // ticker -> [{id, quantity, price, transactionDate}, ...] from transactions table
+let concallData = {};        // ticker -> { hasConcall, summaryAvailable, announcementId, date, subject }
 
 // Announcement service base URL (authenticated endpoints via gateway)
 const ANN_API_BASE =
@@ -92,6 +95,7 @@ function compareRows(a, b, column, asc) {
       const plpA = investedA > 0 ? ((computeCMP(a.ticker) - a.buyPrice)*100 / a.buyPrice) : 0;
       const plpB = investedB > 0 ? ((computeCMP(b.ticker) - b.buyPrice)*100 / b.buyPrice) : 0;
       return dir * (plpA - plpB);
+    case "buyDate":  return dir * ((a.buyDate ?? "").localeCompare(b.buyDate ?? ""));
     case "dayPct":   return dir * ((computeDayPct(a.ticker) ?? 0) - (computeDayPct(b.ticker) ?? 0));
     default: return 0;
   }
@@ -719,6 +723,117 @@ async function loadAnnouncementCounts() {
   }
 }
 
+// Load buy transactions for active positions (for expand/split view)
+async function loadBuyTransactions() {
+  buyTransactions = {};
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/transactions/buys/active`);
+    if (!res.ok) {
+      console.log('Buy transactions not available:', res.status);
+      return;
+    }
+    buyTransactions = await res.json(); // { "NSE:QPOWER": [{...}, {...}], ... }
+    console.log('Buy transactions loaded:', Object.keys(buyTransactions).length, 'tickers');
+  } catch (e) {
+    console.log('Could not load buy transactions:', e.message);
+  }
+}
+
+function getBuyTxForTicker(ticker) {
+  const t = String(ticker || '').toUpperCase();
+  return buyTransactions[t] || [];
+}
+
+// ========= Load Concall Data =========
+async function loadConcallData() {
+  concallData = {};
+  const tickers = [...new Set((positions || []).map(p => p.ticker).filter(Boolean))];
+  if (!tickers.length) return;
+
+  const pureTickers = tickers.map(t => extractPureTicker(t));
+
+  try {
+    const url = new URL(`${ANN_API_BASE}/concall/status`);
+    pureTickers.forEach(t => url.searchParams.append('tickers', t));
+    url.searchParams.append('days', '90');
+
+    const res = await fetchWithAuth(url);
+    if (!res.ok) {
+      console.log('Concall status not available:', res.status);
+      return;
+    }
+
+    const data = await res.json();
+    console.log('Concall status:', data);
+
+    for (const [ticker, info] of Object.entries(data)) {
+      concallData[ticker.toUpperCase()] = info;
+      concallData['NSE:' + ticker.toUpperCase()] = info;
+    }
+  } catch (e) {
+    console.log('Could not load concall data:', e.message);
+  }
+}
+
+function getConcallInfo(ticker) {
+  const t = String(ticker || '').toUpperCase();
+  return concallData[t] || concallData[extractPureTicker(t).toUpperCase()] || null;
+}
+
+function toggleExpand(ticker) {
+  if (expandedTickers.has(ticker)) expandedTickers.delete(ticker);
+  else expandedTickers.add(ticker);
+  renderTable(byId("filter").value);
+}
+
+function buildBadges(ticker, avgBuy, firstId) {
+  const annCount = getAnnouncementCount(ticker);
+  const annUnseenCount = getAnnouncementUnseenCount(ticker);
+  const hasUnseen = annUnseenCount > 0;
+  const annBadgeClass = hasUnseen ? 'has-ann has-unseen' : (annCount > 0 ? 'has-ann' : 'no-ann');
+  let annBadgeHtml;
+  if (hasUnseen) {
+    annBadgeHtml = `<span class="ann-badge ${annBadgeClass}" onclick="showAnnouncements('${ticker}')" title="${annUnseenCount} new announcement(s)"><span class="ann-icon">📢</span>${annUnseenCount}</span>`;
+  } else if (annCount > 0) {
+    annBadgeHtml = `<span class="ann-badge has-ann seen" onclick="showAnnouncements('${ticker}')" title="All seen"><span class="ann-icon">📢</span></span>`;
+  } else {
+    annBadgeHtml = `<span class="ann-badge no-ann">–</span>`;
+  }
+
+  const alertCount = getAlertCount(extractPureTicker(ticker));
+  const alertBadgeHtml = alertCount > 0
+    ? `<span class="alert-badge has-alert" onclick="showAlerts('${ticker}')" title="View alerts"><span class="alert-icon">🔔</span>${alertCount}</span>`
+    : `<span class="alert-badge no-alert" onclick="openAlertModal('${ticker}', ${avgBuy}, ${firstId})" title="Create alert"><span class="alert-icon">+</span></span>`;
+
+  const resultsInfo = getResultsForTicker(ticker);
+  let resultsBadgeHtml;
+  if (resultsInfo) {
+    const trend = resultsInfo.trend || '';
+    const trendClass = trend === 'UP' ? 'trend-up' : (trend === 'DOWN' ? 'trend-down' : '');
+    const patYoY = resultsInfo.patYoY;
+    const patYoYText = patYoY != null ? `PAT: ${patYoY >= 0 ? '+' : ''}${patYoY.toFixed(1)}% YoY` : '';
+    const quarterLabel = resultsInfo.quarterLabel || '';
+    const pureTicker = extractPureTicker(ticker);
+    resultsBadgeHtml = `<a href="results-analysis.html?ticker=${encodeURIComponent(pureTicker)}" class="results-badge has-results ${trendClass}" title="${quarterLabel}: ${patYoYText}"><span class="results-icon">📊</span>${quarterLabel}</a>`;
+  } else {
+    resultsBadgeHtml = `<span class="results-badge no-results" title="No results available">-</span>`;
+  }
+
+  const concallInfo = getConcallInfo(ticker);
+  let concallBadgeHtml;
+  if (concallInfo && concallInfo.hasConcall) {
+    if (concallInfo.summaryAvailable) {
+      concallBadgeHtml = `<span class="concall-badge has-summary" onclick="showConcallSummary(${concallInfo.announcementId}, '${extractPureTicker(ticker)}')" title="View concall summary (cached)"><span class="concall-icon">📞</span></span>`;
+    } else {
+      concallBadgeHtml = `<span class="concall-badge needs-gen" onclick="showConcallSummary(${concallInfo.announcementId}, '${extractPureTicker(ticker)}')" title="Generate concall summary"><span class="concall-icon">📞</span></span>`;
+    }
+  } else {
+    concallBadgeHtml = `<span class="concall-badge no-concall">-</span>`;
+  }
+
+  return { annBadgeHtml, alertBadgeHtml, resultsBadgeHtml, concallBadgeHtml };
+}
+
 function renderTable(filterText = "") {
   const tbody = byId("rows");
   tbody.innerHTML = "";
@@ -733,108 +848,121 @@ function renderTable(filterText = "") {
   }
 
   if (view.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="16" class="muted">No positions yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="17" class="muted">No positions yet.</td></tr>`;
     updateKPIs([]);
     return;
   }
 
+  // Group positions by ticker
+  const grouped = new Map();
+  view.forEach(p => {
+    const key = p.ticker.toUpperCase();
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(p);
+  });
+
   let rowsHtml = "";
   const enriched = [];
+  let rowNum = 0;
 
-  view.forEach((p, i) => {
-    const qty = Number(p.quantity ?? 0);
-    const buy = Number(p.buyPrice ?? 0);
-    const invested = isFinite(qty * buy) ? qty * buy : 0;
+  for (const [ticker, group] of grouped) {
+    rowNum++;
+    const cmp = computeCMP(ticker);
+    const dayPct = computeDayPct(ticker);
 
-    const cmp = computeCMP(p.ticker);
-    const dayPct = computeDayPct(p.ticker);         // may be null
-    const current = cmp != null ? qty * Number(cmp) : null;
+    // Get buy transactions for this ticker (from transactions table)
+    const buyTxs = getBuyTxForTicker(ticker);
+    const hasMultipleBuys = buyTxs.length > 1;
+    const isExpanded = expandedTickers.has(ticker);
 
-    const pl  = current != null ? (current - invested) : null;
-    const plp = (current != null && invested > 0) ? (pl * 100 / invested) : null;
-
-    // per-row daily change value (based on current value)
+    // Compute aggregated values from positions
+    let totalQty = 0, totalInvested = 0;
+    group.forEach(p => {
+      const q = Number(p.quantity ?? 0);
+      const b = Number(p.buyPrice ?? 0);
+      totalQty += q;
+      totalInvested += q * b;
+    });
+    const avgBuy = totalQty > 0 ? totalInvested / totalQty : 0;
+    const current = cmp != null ? totalQty * Number(cmp) : null;
+    const pl = current != null ? (current - totalInvested) : null;
+    const plp = (current != null && totalInvested > 0) ? (pl * 100 / totalInvested) : null;
     const rowDayDeltaVal = (current != null && dayPct != null) ? (current * dayPct / 100) : null;
 
-    // Announcement count for this ticker (show unseen count, badge only if unseen > 0)
-    const annCount = getAnnouncementCount(p.ticker);
-    const annUnseenCount = getAnnouncementUnseenCount(p.ticker);
-    const hasUnseen = annUnseenCount > 0;
-    const annBadgeClass = hasUnseen ? 'has-ann has-unseen' : (annCount > 0 ? 'has-ann' : 'no-ann');
-    let annBadgeHtml;
-    if (hasUnseen) {
-      // Show unseen count with highlighted badge
-      annBadgeHtml = `<span class="ann-badge ${annBadgeClass}" onclick="showAnnouncements('${p.ticker}')" title="${annUnseenCount} new announcement(s). Click to view.">
-           <span class="ann-icon">📢</span>${annUnseenCount}
-         </span>`;
-    } else if (annCount > 0) {
-      // Has announcements but all seen - show muted badge
-      annBadgeHtml = `<span class="ann-badge has-ann seen" onclick="showAnnouncements('${p.ticker}')" title="All announcements seen. Click to view.">
-           <span class="ann-icon">📢</span>
-         </span>`;
-    } else {
-      // No announcements
-      annBadgeHtml = `<span class="ann-badge no-ann">–</span>`;
-    }
+    enriched.push({ invested: totalInvested, current, pl, plp, rowDayDeltaVal, currentForWeight: current, dayPct });
 
-    // Alert count for this ticker
-    const alertCount = getAlertCount(extractPureTicker(p.ticker));
-    const alertBadgeClass = alertCount > 0 ? 'has-alert' : 'no-alert';
-    const alertBadgeHtml = alertCount > 0
-      ? `<span class="alert-badge ${alertBadgeClass}" onclick="showAlerts('${p.ticker}')" title="Click to view alerts">
-           <span class="alert-icon">🔔</span>${alertCount}
-         </span>`
-      : `<span class="alert-badge ${alertBadgeClass}" onclick="openAlertModal('${p.ticker}', ${buy}, ${p.id})" title="Click to create alert">
-           <span class="alert-icon">+</span>
-         </span>`;
+    // Badges (only on main row)
+    const badges = buildBadges(ticker, avgBuy, group[0].id);
 
-    // Results data for this ticker
-    const resultsInfo = getResultsForTicker(p.ticker);
-    let resultsBadgeHtml;
-    if (resultsInfo) {
-      const trend = resultsInfo.trend || '';
-      const trendClass = trend === 'UP' ? 'trend-up' : (trend === 'DOWN' ? 'trend-down' : '');
-      const patYoY = resultsInfo.patYoY;
-      const patYoYText = patYoY != null ? `PAT: ${patYoY >= 0 ? '+' : ''}${patYoY.toFixed(1)}% YoY` : '';
-      const quarterLabel = resultsInfo.quarterLabel || '';
-      const pureTicker = extractPureTicker(p.ticker);
-      resultsBadgeHtml = `<a href="results-analysis.html?ticker=${encodeURIComponent(pureTicker)}"
-                            class="results-badge has-results ${trendClass}"
-                            title="${quarterLabel}: ${patYoYText}">
-                            <span class="results-icon">📊</span>${quarterLabel}
-                          </a>`;
-    } else {
-      resultsBadgeHtml = `<span class="results-badge no-results" title="No results available">-</span>`;
-    }
+    // Combine notes from all positions
+    const allNotes = group.map(p => p.notes).filter(Boolean).join("; ");
 
-    enriched.push({ invested, current, pl, plp, rowDayDeltaVal, currentForWeight: current, dayPct });
+    // Expand button if multiple buy transactions exist
+    const expandBtn = hasMultipleBuys
+      ? `<button class="expand-btn" onclick="toggleExpand('${ticker}')" title="${isExpanded ? 'Collapse' : 'Expand'} ${buyTxs.length} buys">${isExpanded ? '−' : '+'}</button> `
+      : '';
 
     rowsHtml += `
       <tr>
-        <td>${i + 1}</td>
-        <td>${p.ticker}</td>
-        <td>${qty}</td>
-        <td class="num">${fmtINR(buy)}</td>
-        <td>${p.buyDate ?? ""}</td>
-        <td class="num">${fmtINR(invested)}</td>
+        <td>${rowNum}</td>
+        <td>${expandBtn}${ticker}${hasMultipleBuys ? ` <span style="color:#6b7280;font-size:11px">(${buyTxs.length})</span>` : ''}</td>
+        <td>${totalQty}</td>
+        <td class="num">${fmtINR(avgBuy)}</td>
+        <td>${group[0].buyDate ?? ""}</td>
+        <td class="num">${fmtINR(totalInvested)}</td>
         <td class="num">${cmp != null ? fmtINR(cmp) : "–"}</td>
         <td class="num">${current != null ? fmtINR(current) : "–"}</td>
         <td class="num" style="color:${(pl ?? 0) >= 0 ? 'green':'red'}">${pl != null ? fmtINR(pl) : "–"}</td>
         <td class="num" style="color:${(plp ?? 0) >= 0 ? 'green':'red'}">${plp != null ? fmtINR(plp) + "%" : "–"}</td>
         <td class="num" style="color:${(dayPct ?? 0) >= 0 ? 'green':'red'}">${dayPct != null ? fmtINR(dayPct) + "%" : "–"}</td>
-        <td>${annBadgeHtml}</td>
-        <td>${alertBadgeHtml}</td>
-        <td>${resultsBadgeHtml}</td>
-        <td>${p.notes ? p.notes.replace(/</g,"&lt;") : ""}</td>
+        <td>${badges.annBadgeHtml}</td>
+        <td>${badges.alertBadgeHtml}</td>
+        <td>${badges.resultsBadgeHtml}</td>
+        <td>${badges.concallBadgeHtml}</td>
+        <td>${allNotes ? allNotes.replace(/</g,"&lt;") : ""}</td>
         <td class="actions">
-          <button class="btn btn-outline" onclick="openAddShares('${p.ticker}', ${qty}, ${buy})" title="Add more shares">+Add</button>
-          <button class="btn" onclick="openSellModal('${p.ticker}', ${qty}, ${buy}, ${p.id})" style="background:#059669;color:#fff;" title="Sell shares">Sell</button>
-          <button class="btn btn-outline" onclick="openEdit(${p.id})" style="padding:6px 8px;" title="Edit position">✏️</button>
+          <button class="btn btn-outline" onclick="openAddShares('${ticker}', ${totalQty}, ${avgBuy})" title="Add more shares">+Add</button>
+          <button class="btn" onclick="openSellModal('${ticker}', ${totalQty}, ${avgBuy}, ${group[0].id})" style="background:#059669;color:#fff;" title="Sell shares">Sell</button>
+          <button class="btn btn-outline" onclick="openEdit(${group[0].id})" style="padding:6px 8px;" title="Edit position">✏️</button>
         </td>
       </tr>
     `;
-  });
 
+    // Sub-rows from buy transactions (when expanded)
+    if (hasMultipleBuys && isExpanded) {
+      buyTxs.forEach((tx, si) => {
+        const qty = Number(tx.quantity ?? 0);
+        const buy = Number(tx.price ?? 0);
+        const inv = qty * buy;
+        const subCurrent = cmp != null ? qty * Number(cmp) : null;
+        const subPl = subCurrent != null ? (subCurrent - inv) : null;
+        const subPlp = (subCurrent != null && inv > 0) ? (subPl * 100 / inv) : null;
+        const txDate = tx.transactionDate ?? "";
+
+        rowsHtml += `
+          <tr class="sub-row">
+            <td></td>
+            <td style="padding-left:28px;color:#6b7280;">↳ Buy ${si + 1}</td>
+            <td>${qty}</td>
+            <td class="num">${fmtINR(buy)}</td>
+            <td>${txDate}</td>
+            <td class="num">${fmtINR(inv)}</td>
+            <td class="num">${cmp != null ? fmtINR(cmp) : "–"}</td>
+            <td class="num">${subCurrent != null ? fmtINR(subCurrent) : "–"}</td>
+            <td class="num" style="color:${(subPl ?? 0) >= 0 ? 'green':'red'}">${subPl != null ? fmtINR(subPl) : "–"}</td>
+            <td class="num" style="color:${(subPlp ?? 0) >= 0 ? 'green':'red'}">${subPlp != null ? fmtINR(subPlp) + "%" : "–"}</td>
+            <td class="num" style="color:${(dayPct ?? 0) >= 0 ? 'green':'red'}">${dayPct != null ? fmtINR(dayPct) + "%" : "–"}</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>${tx.notes ? tx.notes.replace(/</g,"&lt;") : ""}</td>
+            <td></td>
+          </tr>
+        `;
+      });
+    }
+  }
 
   tbody.innerHTML = rowsHtml;
   updateKPIs(enriched);
@@ -923,6 +1051,45 @@ async function resolveTicker(query){
   return res.json(); // {ticker,name}
 }
 
+// Auto-create stop-loss alert at 5% below buy price
+async function autoCreateStopLoss(ticker, buyPrice, positionId) {
+  const pureTicker = extractPureTicker(ticker);
+  const targetPrice = (buyPrice * 0.95).toFixed(2);
+  const email = localStorage.getItem("alert_email") || "";
+  const telegramChatId = localStorage.getItem("telegram_chat_id") || "";
+
+  let channels = [];
+  if (email) channels.push('EMAIL');
+  if (telegramChatId) channels.push('TELEGRAM');
+  const notificationChannels = channels.length > 0 ? channels.join(',') : 'EMAIL';
+
+  try {
+    const res = await fetchWithAuth(`${ALERT_API_BASE}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ticker: pureTicker,
+        alertType: 'STOP_LOSS',
+        targetPrice: parseFloat(targetPrice),
+        buyPrice: buyPrice,
+        stopLossPercent: 5.0,
+        positionId: positionId || null,
+        userEmail: email || null,
+        telegramChatId: telegramChatId || null,
+        notificationChannels: notificationChannels,
+        notes: 'Auto-created 5% stop-loss'
+      })
+    });
+    if (res.ok) {
+      console.log(`Auto stop-loss created for ${pureTicker} at ₹${targetPrice}`);
+    } else {
+      console.log(`Auto stop-loss failed for ${pureTicker}:`, res.status);
+    }
+  } catch (e) {
+    console.log(`Auto stop-loss error for ${pureTicker}:`, e.message);
+  }
+}
+
 /* ---------- CRUD ---------- */
 async function savePosition() {
   const raw = (byId("m-ticker").value || "").trim();
@@ -967,6 +1134,13 @@ async function savePosition() {
     showErr(`Save failed (${res.status}) ${t}`);
     return;
   }
+
+  // Auto-create 5% stop-loss for new positions
+  if (!editingId) {
+    const created = await res.json().catch(() => null);
+    autoCreateStopLoss(symbol.ticker, price, created?.id);
+  }
+
   closeModal();
   await refresh();
 }
@@ -1004,7 +1178,9 @@ async function refresh() {
       loadAnnouncementCounts(), // fills announcementCounts
       loadAlertCounts(),       // fills alertCounts
       loadTriggeredAlerts(),   // fills triggeredAlerts for notification bell
-      loadResultsData()        // fills resultsData for results column
+      loadResultsData(),       // fills resultsData for results column
+      loadBuyTransactions(),   // fills buyTransactions for expand/split view
+      loadConcallData()        // fills concallData for concall column
     ]);
     renderTable(byId("filter").value);
 
@@ -1013,7 +1189,7 @@ async function refresh() {
   } catch (e) {
     console.error(e);
     byId("rows").innerHTML =
-      `<tr><td colspan="16" class="muted">Failed to load portfolio.</td></tr>`;
+      `<tr><td colspan="17" class="muted">Failed to load portfolio.</td></tr>`;
     byId('ai-summary-wrap').style.display = 'none';
   }
 }
@@ -1290,6 +1466,10 @@ async function confirmAddShares() {
     if (res.ok) {
       const tx = await res.json();
       console.log('Add shares transaction:', tx);
+
+      // Auto-create 5% stop-loss for the new buy price
+      autoCreateStopLoss(addSharesTicker, buyPrice, tx.positionId);
+
       closeAddSharesModal();
       showErr(""); // Clear any error
       await refresh();
@@ -1511,6 +1691,96 @@ async function refreshPrices() {
   }
 }
 
+
+// ========= Concall Summary Modal =========
+async function showConcallSummary(announcementId, ticker) {
+  const modal = byId("concall-modal-backdrop");
+  const title = byId("concall-modal-title");
+  const body = byId("concall-modal-body");
+
+  title.textContent = `Concall Summary - ${ticker}`;
+  body.innerHTML = `
+    <div class="concall-loading">
+      <div class="spinner"></div>
+      <div>Generating summary from earnings call transcript...</div>
+      <div style="font-size:12px;margin-top:8px;">This may take 15-30 seconds on first load</div>
+    </div>
+  `;
+  modal.style.display = "flex";
+
+  try {
+    const res = await fetchWithAuth(`${ANN_API_BASE}/concall/summary/${announcementId}`);
+    if (!res.ok) {
+      body.innerHTML = `<div class="concall-error">Failed to load summary (${res.status})</div>`;
+      return;
+    }
+
+    const data = await res.json();
+    console.log('Concall summary:', data);
+
+    if (data.error) {
+      body.innerHTML = `<div class="concall-error">${data.error}</div>`;
+      return;
+    }
+
+    if (data.status === 'SUCCESS') {
+      const quarterLabel = data.quarter ? ` (${data.quarter})` : '';
+      body.innerHTML = `
+        ${formatConcallSummary(data.summaryText)}
+        <div class="concall-meta">
+          ${data.pdfPageCount ? `PDF: ${data.pdfPageCount} pages` : ''}
+          ${data.textLength ? ` | Extracted: ${Math.round(data.textLength / 1000)}K chars` : ''}
+          ${data.generatedAt ? ` | Generated: ${new Date(data.generatedAt).toLocaleDateString()}` : ''}
+          ${quarterLabel}
+        </div>
+      `;
+
+      // Update badge to purple (cached) after successful generation
+      const info = getConcallInfo(ticker);
+      if (info) info.summaryAvailable = true;
+    } else if (data.status === 'AI_DISABLED') {
+      body.innerHTML = `<div class="concall-error">${data.summaryText || 'AI summarization is not configured.'}</div>`;
+    } else if (data.status === 'PDF_ERROR') {
+      body.innerHTML = `<div class="concall-error">${data.summaryText || 'Could not extract text from PDF.'}</div>`;
+    } else {
+      body.innerHTML = `<div class="concall-error">${data.summaryText || 'Summary generation failed.'}</div>`;
+    }
+  } catch (e) {
+    console.error('Concall summary error:', e);
+    body.innerHTML = `<div class="concall-error">Error: ${e.message}</div>`;
+  }
+}
+
+function formatConcallSummary(text) {
+  if (!text) return '<div class="concall-error">No summary available</div>';
+
+  // Convert markdown-like formatting to HTML
+  let html = text
+    // Headers: ## Header
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    // Bold: **text**
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Bullet points: - item
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    // Wrap consecutive <li> in <ul>
+    .replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
+    // Paragraphs: double newline
+    .replace(/\n\n/g, '</p><p>')
+    // Single newlines within paragraphs
+    .replace(/\n/g, '<br>');
+
+  return `<div>${html}</div>`;
+}
+
+function closeConcallModal() {
+  byId("concall-modal-backdrop").style.display = "none";
+}
+
+// Close concall modal on backdrop click
+byId("concall-modal-backdrop").addEventListener("click", function(e) {
+  if (e.target === this) closeConcallModal();
+});
 
 /* ---------- boot ---------- */
 // Wait for token-utils.js to handle token validation/refresh, then load portfolio

@@ -65,7 +65,8 @@ public class PeadScannerService {
             "outcome of the board meeting",
             "board meeting outcome",
             "results for the quarter",
-            "results for quarter"
+            "results for quarter",
+            "board approves dividend"
     );
 
     /**
@@ -535,6 +536,17 @@ public class PeadScannerService {
                 if (financialResult.isPresent()) {
                     result.put(ticker, financialResult.get());
                     foundTickers.add(ticker);
+                } else {
+                    // Fallback: use "Board Meeting Intimation" for financial results
+                    // when the actual outcome announcement is missing from DB
+                    Optional<Announcement> intimation = tickerAnnouncements.stream()
+                            .filter(this::isBoardMeetingIntimationForResults)
+                            .max(Comparator.comparing(Announcement::getAnnouncementDate));
+                    if (intimation.isPresent()) {
+                        result.put(ticker, intimation.get());
+                        foundTickers.add(ticker);
+                        log.info("Using board meeting intimation as fallback for ticker {}", ticker);
+                    }
                 }
             }
         }
@@ -581,12 +593,39 @@ public class PeadScannerService {
             return true;
         }
 
+        // Exclude board meeting intimations — these are future-looking notices
+        // ("will consider financial results"), not actual results
+        if (subject.contains("board meeting intimation") || subject.contains("intimation of board meeting")) {
+            return false;
+        }
+
         for (String keyword : FINANCIAL_RESULT_KEYWORDS) {
             if (subject.contains(keyword) || category.contains(keyword)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Check if an announcement is a "Board Meeting Intimation" that mentions financial results.
+     * Used as a fallback when the actual result outcome announcement is missing from DB.
+     */
+    private boolean isBoardMeetingIntimationForResults(Announcement announcement) {
+        String subject = announcement.getSubject() != null
+                ? announcement.getSubject().toLowerCase() : "";
+        String category = announcement.getCategory() != null
+                ? announcement.getCategory().toLowerCase() : "";
+
+        // Must be a board meeting intimation
+        if (!subject.contains("board meeting intimation") && !subject.contains("intimation of board meeting")
+                && !category.equals("board meeting")) {
+            return false;
+        }
+
+        // Must mention financial results
+        return subject.contains("financial result") || subject.contains("audited")
+                || subject.contains("unaudited") || subject.contains("un-audited");
     }
 
     /**

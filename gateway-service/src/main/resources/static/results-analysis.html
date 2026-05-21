@@ -225,7 +225,7 @@
         <a href="results-analysis.html" class="active">Results</a>
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
-        <a href="health.html">Health</a>
+        <a href="health.html" class="admin-only">Health</a>
     </div>
 </div>
 
@@ -274,6 +274,10 @@
         ? "http://localhost:8082/announcement-service/api/announcements"
         : `${window.location.origin}/announcement-service/api/announcements`;
 
+    const REPORTING_API_BASE = window.location.hostname === "localhost"
+        ? "http://localhost:8082/reporting-service/api"
+        : `${window.location.origin}/reporting-service/api`;
+
     // ========= Autocomplete =========
     const suggestBox = document.getElementById("suggestions-box");
     const tickerInput = document.getElementById("ticker-input");
@@ -292,7 +296,7 @@
 
     async function fetchSuggestions(query) {
         try {
-            const res = await fetchWithAuth(`${ANN_API_BASE}/search?q=${encodeURIComponent(query)}`);
+            const res = await fetchWithAuth(`${REPORTING_API_BASE}/stocks/search?q=${encodeURIComponent(query)}`);
             if (!res.ok) {
                 hideSuggestions();
                 return;
@@ -313,11 +317,12 @@
 
         let html = '';
         for (const s of suggestions) {
-            const ticker = s.nseTicker || '';
-            const company = s.companyName || '';
-            const displayTicker = ticker || s.scripCode || '';
-            html += `<div class="suggestion-item" onclick="selectSuggestion('${ticker || company}', '${company}')">
-                <span class="suggestion-ticker">${displayTicker}</span>
+            // reporting-service returns { ticker: "NSE:GRSE", name: "Garden Reach...", label: "..." }
+            let ticker = s.ticker || '';
+            const pureTicker = ticker.replace('NSE:', '');
+            const company = s.name || '';
+            html += `<div class="suggestion-item" onclick="selectSuggestion('${pureTicker}', '${company.replace(/'/g, "\\'")}')">
+                <span class="suggestion-ticker">${pureTicker}</span>
                 <div class="suggestion-company">${company}</div>
             </div>`;
         }
@@ -515,7 +520,7 @@
         content.innerHTML = '<div class="loading">Loading results for ' + ticker + '...</div>';
 
         try {
-            const res = await fetchWithAuth(`${RESULTS_API_BASE}/ticker/${ticker}`);
+            const res = await fetchWithAuth(`${RESULTS_API_BASE}/ticker/${ticker}?result_type=auto`);
             console.log("Search response status:", res.status);
 
             if (!res.ok) {
@@ -645,21 +650,21 @@
 
         if (quarters.length >= 2) {
             const curr = quarters[0], prev = quarters[1];
-            if (curr.revenue && prev.revenue) revenueQoQ = ((curr.revenue - prev.revenue) / prev.revenue * 100);
-            if (curr.pbt && prev.pbt) pbtQoQ = ((curr.pbt - prev.pbt) / prev.pbt * 100);
-            if (curr.pat && prev.pat) patQoQ = ((curr.pat - prev.pat) / prev.pat * 100);
-            if (curr.ebitda && prev.ebitda) ebitdaQoQ = ((curr.ebitda - prev.ebitda) / prev.ebitda * 100);
-            if (curr.epsBasic && prev.epsBasic) epsQoQ = ((curr.epsBasic - prev.epsBasic) / prev.epsBasic * 100);
+            if (curr.revenue != null && prev.revenue && prev.revenue !== 0) revenueQoQ = ((curr.revenue - prev.revenue) / Math.abs(prev.revenue) * 100);
+            if (curr.pbt != null && prev.pbt && prev.pbt !== 0) pbtQoQ = ((curr.pbt - prev.pbt) / Math.abs(prev.pbt) * 100);
+            if (curr.pat != null && prev.pat && prev.pat !== 0) patQoQ = ((curr.pat - prev.pat) / Math.abs(prev.pat) * 100);
+            if (curr.ebitda != null && prev.ebitda && prev.ebitda !== 0) ebitdaQoQ = ((curr.ebitda - prev.ebitda) / Math.abs(prev.ebitda) * 100);
+            if (curr.epsBasic != null && prev.epsBasic && prev.epsBasic !== 0) epsQoQ = ((curr.epsBasic - prev.epsBasic) / Math.abs(prev.epsBasic) * 100);
         }
 
         // YoY - find same quarter last year
         if (quarters.length >= 5) {
             const curr = quarters[0], yoy = quarters[4];
-            if (curr.revenue && yoy.revenue) revenueYoY = ((curr.revenue - yoy.revenue) / yoy.revenue * 100);
-            if (curr.pbt && yoy.pbt) pbtYoY = ((curr.pbt - yoy.pbt) / yoy.pbt * 100);
-            if (curr.pat && yoy.pat) patYoY = ((curr.pat - yoy.pat) / yoy.pat * 100);
-            if (curr.ebitda && yoy.ebitda) ebitdaYoY = ((curr.ebitda - yoy.ebitda) / yoy.ebitda * 100);
-            if (curr.epsBasic && yoy.epsBasic) epsYoY = ((curr.epsBasic - yoy.epsBasic) / yoy.epsBasic * 100);
+            if (curr.revenue != null && yoy.revenue && yoy.revenue !== 0) revenueYoY = ((curr.revenue - yoy.revenue) / Math.abs(yoy.revenue) * 100);
+            if (curr.pbt != null && yoy.pbt && yoy.pbt !== 0) pbtYoY = ((curr.pbt - yoy.pbt) / Math.abs(yoy.pbt) * 100);
+            if (curr.pat != null && yoy.pat && yoy.pat !== 0) patYoY = ((curr.pat - yoy.pat) / Math.abs(yoy.pat) * 100);
+            if (curr.ebitda != null && yoy.ebitda && yoy.ebitda !== 0) ebitdaYoY = ((curr.ebitda - yoy.ebitda) / Math.abs(yoy.ebitda) * 100);
+            if (curr.epsBasic != null && yoy.epsBasic && yoy.epsBasic !== 0) epsYoY = ((curr.epsBasic - yoy.epsBasic) / Math.abs(yoy.epsBasic) * 100);
         }
 
         let html = `

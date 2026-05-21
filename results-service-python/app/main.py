@@ -761,23 +761,23 @@ async def get_good_results(
                         pq.prev_q_revenue,
                         pq.prev_q_pat,
                         pq.prev_q_pbt,
-                        CASE WHEN yr.prev_y_revenue > 0 THEN
-                            ((lr.revenue - yr.prev_y_revenue) / yr.prev_y_revenue * 100)
+                        CASE WHEN yr.prev_y_revenue IS NOT NULL AND yr.prev_y_revenue != 0 THEN
+                            ((lr.revenue - yr.prev_y_revenue) / ABS(yr.prev_y_revenue) * 100)
                         ELSE NULL END as revenue_yoy,
-                        CASE WHEN yr.prev_y_pat > 0 THEN
-                            ((lr.pat - yr.prev_y_pat) / yr.prev_y_pat * 100)
+                        CASE WHEN yr.prev_y_pat IS NOT NULL AND yr.prev_y_pat != 0 THEN
+                            ((lr.pat - yr.prev_y_pat) / ABS(yr.prev_y_pat) * 100)
                         ELSE NULL END as pat_yoy,
-                        CASE WHEN yr.prev_y_pbt > 0 THEN
-                            ((lr.pbt - yr.prev_y_pbt) / yr.prev_y_pbt * 100)
+                        CASE WHEN yr.prev_y_pbt IS NOT NULL AND yr.prev_y_pbt != 0 THEN
+                            ((lr.pbt - yr.prev_y_pbt) / ABS(yr.prev_y_pbt) * 100)
                         ELSE NULL END as pbt_yoy,
-                        CASE WHEN pq.prev_q_revenue > 0 THEN
-                            ((lr.revenue - pq.prev_q_revenue) / pq.prev_q_revenue * 100)
+                        CASE WHEN pq.prev_q_revenue IS NOT NULL AND pq.prev_q_revenue != 0 THEN
+                            ((lr.revenue - pq.prev_q_revenue) / ABS(pq.prev_q_revenue) * 100)
                         ELSE NULL END as revenue_qoq,
-                        CASE WHEN pq.prev_q_pat > 0 THEN
-                            ((lr.pat - pq.prev_q_pat) / pq.prev_q_pat * 100)
+                        CASE WHEN pq.prev_q_pat IS NOT NULL AND pq.prev_q_pat != 0 THEN
+                            ((lr.pat - pq.prev_q_pat) / ABS(pq.prev_q_pat) * 100)
                         ELSE NULL END as pat_qoq,
-                        CASE WHEN pq.prev_q_pbt > 0 THEN
-                            ((lr.pbt - pq.prev_q_pbt) / pq.prev_q_pbt * 100)
+                        CASE WHEN pq.prev_q_pbt IS NOT NULL AND pq.prev_q_pbt != 0 THEN
+                            ((lr.pbt - pq.prev_q_pbt) / ABS(pq.prev_q_pbt) * 100)
                         ELSE NULL END as pbt_qoq
                     FROM latest_results lr
                     LEFT JOIN yoy_results yr ON lr.ticker = yr.ticker
@@ -990,6 +990,8 @@ async def get_dlq_messages(limit: int = Query(50, description="Max messages to f
                     "attemptNumber": body.get("attemptNumber"),
                     "maxAttempts": body.get("maxAttempts"),
                     "failureReason": body.get("failureReason"),
+                    "lastFailReason": body.get("lastFailReason"),
+                    "expectedQuarter": body.get("expectedQuarter"),
                     "failedAt": body.get("failedAt"),
                     "announcementTime": body.get("announcementTime"),
                     "subject": body.get("subject")
@@ -1312,6 +1314,59 @@ async def purge_retry_queue():
         return {"error": str(e)}
 
 
+@app.post("/api/results/queue/retry/move-to-dlq")
+async def move_retry_to_dlq(limit: int = Query(1000, description="Max messages to move")):
+    """
+    Move all messages from Retry Queue directly to DLQ.
+    Useful after reprocessing to quickly capture failure reasons without waiting for retry delays.
+    """
+    from aio_pika import Message, DeliveryMode
+    import json
+
+    try:
+        if not rabbitmq_consumer or not rabbitmq_consumer.channel:
+            return {"error": "RabbitMQ consumer not connected"}
+
+        retry_queue = await rabbitmq_consumer.channel.get_queue("results.fetch.retry")
+        dlx_exchange = await rabbitmq_consumer.channel.get_exchange("results.dlx.exchange")
+
+        moved = 0
+        for _ in range(limit):
+            try:
+                message = await retry_queue.get(no_ack=False, timeout=5)
+                if message is None:
+                    break
+
+                body = json.loads(message.body.decode())
+                ticker = body.get("ticker", "UNKNOWN")
+                last_reason = body.get("lastFailReason", "Unknown")
+
+                # Set final failure reason with detail
+                body["failureReason"] = f"Max retries exhausted: {last_reason}"
+                body["failedAt"] = datetime.now().isoformat()
+
+                dlq_message = Message(
+                    body=json.dumps(body).encode(),
+                    delivery_mode=DeliveryMode.PERSISTENT,
+                    content_type="application/json"
+                )
+                await dlx_exchange.publish(dlq_message, routing_key="results.fetch.dead")
+                await message.ack()
+                moved += 1
+
+            except asyncio.TimeoutError:
+                break
+            except Exception as e:
+                logger.warning(f"Error moving retry message: {e}")
+                break
+
+        return {"movedToDLQ": moved}
+
+    except Exception as e:
+        logger.error(f"Error moving retry to DLQ: {e}")
+        return {"error": str(e)}
+
+
 @app.get("/api/results/queue/dlq/summary")
 async def get_dlq_summary(max_messages: int = Query(500, description="Max messages to scan for summary")):
     """
@@ -1357,15 +1412,19 @@ async def get_dlq_summary(max_messages: int = Query(500, description="Max messag
                 ticker = body.get("ticker", "UNKNOWN")
                 reason = body.get("failureReason", "Unknown reason")
 
+                # Get the detailed reason (lastFailReason has the actual cause)
+                last_fail = body.get("lastFailReason") or reason
+
                 # Count by ticker
                 if ticker not in by_ticker:
-                    by_ticker[ticker] = {"count": 0, "companyName": body.get("companyName")}
+                    by_ticker[ticker] = {"count": 0, "companyName": body.get("companyName"), "lastFailReason": last_fail, "expectedQuarter": body.get("expectedQuarter")}
                 by_ticker[ticker]["count"] += 1
+                by_ticker[ticker]["lastFailReason"] = last_fail  # keep latest
 
-                # Count by reason
-                if reason not in by_reason:
-                    by_reason[reason] = 0
-                by_reason[reason] += 1
+                # Count by detailed reason
+                if last_fail not in by_reason:
+                    by_reason[last_fail] = 0
+                by_reason[last_fail] += 1
 
                 collected_messages.append(message)
 

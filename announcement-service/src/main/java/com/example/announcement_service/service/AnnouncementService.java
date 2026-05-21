@@ -375,7 +375,7 @@ public class AnnouncementService {
      * Map BSE announcement directly to DTO (for live results before DB save)
      */
     private AnnouncementDTO mapBseToDTO(BseAnnouncementResponse.BseAnnouncement bse, String nseTicker) {
-        LocalDateTime announcementDate = parseDateTime(bse.getNewsDate(), bse.getSessionTime());
+        LocalDateTime announcementDate = parseDateTime(bse.getNewsDate(), bse.getSessionTime(), bse.getDateTime());
 
         return AnnouncementDTO.builder()
                 .newsId(bse.getNewsId())
@@ -431,7 +431,7 @@ public class AnnouncementService {
     }
 
     private Announcement mapFromBseAnnouncement(BseAnnouncementResponse.BseAnnouncement bse) {
-        LocalDateTime announcementDate = parseDateTime(bse.getNewsDate(), bse.getSessionTime());
+        LocalDateTime announcementDate = parseDateTime(bse.getNewsDate(), bse.getSessionTime(), bse.getDateTime());
 
         // Extract ticker from company name or use scrip code as fallback
         String ticker = extractTicker(bse.getCompanyName(), bse.getScripCode());
@@ -454,7 +454,7 @@ public class AnnouncementService {
                 .build();
     }
 
-    private LocalDateTime parseDateTime(String dateStr, String timeStr) {
+    private LocalDateTime parseDateTime(String dateStr, String timeStr, String broadcastDateTime) {
         try {
             if (dateStr != null && timeStr != null) {
                 String combined = dateStr.trim() + " " + timeStr.trim();
@@ -464,6 +464,14 @@ public class AnnouncementService {
             }
         } catch (Exception e) {
             log.debug("Failed to parse date: {} {}", dateStr, timeStr);
+        }
+        // Fallback: parse broadcastDateTime (ISO format like "2026-04-30T13:05:32.6")
+        if (broadcastDateTime != null) {
+            try {
+                return LocalDateTime.parse(broadcastDateTime.trim());
+            } catch (Exception e) {
+                log.debug("Failed to parse broadcastDateTime: {}", broadcastDateTime);
+            }
         }
         return LocalDateTime.now();
     }

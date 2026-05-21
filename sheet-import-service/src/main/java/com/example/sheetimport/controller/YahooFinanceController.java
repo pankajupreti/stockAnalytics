@@ -84,6 +84,26 @@ public class YahooFinanceController {
     }
 
     /**
+     * Refresh prices for ALL stocks in the database (async).
+     * POST /api/yahoo/refresh-all
+     * Returns immediately; poll GET /api/yahoo/refresh-all/status for progress.
+     */
+    @PostMapping("/refresh-all")
+    public ResponseEntity<Map<String, Object>> refreshAllPrices() {
+        Map<String, Object> result = priceUpdateJob.refreshAllAsync();
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Get progress of async refresh-all operation.
+     * GET /api/yahoo/refresh-all/status
+     */
+    @GetMapping("/refresh-all/status")
+    public ResponseEntity<Map<String, Object>> getRefreshAllStatus() {
+        return ResponseEntity.ok(priceUpdateJob.getRefreshAllStatus());
+    }
+
+    /**
      * Get statistics about stock sources.
      * GET /api/yahoo/stats
      */

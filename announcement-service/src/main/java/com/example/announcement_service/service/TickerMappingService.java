@@ -268,6 +268,96 @@ public class TickerMappingService {
     }
 
     /**
+     * Discover and save ticker mappings for scrip codes that have announcements but no mapping.
+     * Calls BSE API to resolve each scrip code to an NSE ticker.
+     *
+     * @param missingScripCodes List of Object[] from findMissingMappings query (scripCode, companyName, count)
+     * @param limit Max number of scrip codes to process per run
+     * @return Number of newly discovered mappings
+     */
+    public int discoverMissingMappings(List<Object[]> missingScripCodes, int limit) {
+        int discovered = 0;
+
+        for (int i = 0; i < Math.min(missingScripCodes.size(), limit); i++) {
+            Object[] row = missingScripCodes.get(i);
+            String scripCode = row[0] != null ? row[0].toString() : "";
+            String companyName = row[1] != null ? row[1].toString() : "";
+
+            if (scripCode.isEmpty()) continue;
+
+            try {
+                String nseTicker = fetchTickerFromBse(scripCode);
+
+                if (nseTicker != null && !nseTicker.isEmpty()) {
+                    saveMapping(scripCode, nseTicker, companyName, null);
+                    discovered++;
+                    log.info("Auto-discovered mapping: {} -> {} ({})", scripCode, nseTicker, companyName);
+                }
+
+                // Rate limiting — 300ms between BSE API calls
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                log.debug("Failed to discover ticker for scripCode {}: {}", scripCode, e.getMessage());
+            }
+        }
+
+        return discovered;
+    }
+
+    /**
+     * Fetch NSE ticker from BSE API for a given scrip code.
+     * Uses getScripHeaderData endpoint which returns the security ID (ticker symbol).
+     */
+    public String fetchTickerFromBse(String scripCode) {
+        try {
+            String apiUrl = "https://api.bseindia.com/BseIndiaAPI/api/getScripHeaderData/w?Ession=blr&scripcode=" + scripCode;
+
+            java.net.URL url = new java.net.URL(apiUrl);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("Referer", "https://www.bseindia.com/");
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode != 200) {
+                return null;
+            }
+
+            StringBuilder response = new StringBuilder();
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(conn.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+            }
+
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response.toString());
+
+            // getScripHeaderData returns Cmpname.ShortN as the BSE security ID (ticker)
+            com.fasterxml.jackson.databind.JsonNode cmpname = root.get("Cmpname");
+            if (cmpname != null && cmpname.has("ShortN")) {
+                String ticker = cmpname.get("ShortN").asText();
+                if (ticker != null && !ticker.isBlank()) {
+                    return ticker.toUpperCase();
+                }
+            }
+
+            return null;
+        } catch (Exception e) {
+            log.debug("Failed to fetch ticker from BSE for {}: {}", scripCode, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Initialize with default NIFTY 50 and Next 50 mappings
      */
     private void initializeDefaultMappings() {

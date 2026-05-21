@@ -30,11 +30,12 @@
 
         .panel { background:#fff; border:1px solid var(--border); border-radius:10px; padding:16px; }
 
-        table{ width:100%; border-collapse:collapse; font-size:13px; }
-        th,td{ padding:10px 12px; border-bottom:1px solid #f3f4f6; text-align:left; }
-        th{ background:#f9fafb; font-weight:600; color:#374151; }
+        table{ width:100%; border-collapse:collapse; font-size:12px; table-layout:auto; }
+        th,td{ padding:7px 8px; border-bottom:1px solid #f3f4f6; text-align:left; white-space:nowrap; }
+        th{ background:#f9fafb; font-weight:600; color:#374151; font-size:11px; }
         tr:hover td{ background:#fafbfc; }
         td.num{ text-align:right; font-family:monospace; }
+        th.num{ text-align:right; }
 
         .expand-btn{ background:none; border:1px solid var(--border); border-radius:4px; width:22px; height:22px; cursor:pointer; font-size:14px; line-height:20px; text-align:center; padding:0; color:var(--muted); }
         .expand-btn:hover{ background:var(--soft); color:var(--primary); }
@@ -73,7 +74,7 @@
         <a href="results-analysis.html">Results</a>
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
-        <a href="health.html">Health</a>
+        <a href="health.html" class="admin-only">Health</a>
     </div>
 </div>
 
@@ -146,13 +147,15 @@
         <div class="section">
             <div class="panel">
                 <h3>Sell Transactions</h3>
-                <div style="max-height:500px;overflow-y:auto;">
+                <div style="max-height:500px;overflow:auto;">
                     <table>
                         <thead>
                             <tr>
                                 <th style="width:30px;"></th>
                                 <th>Ticker</th>
-                                <th>Date(s)</th>
+                                <th>Buy Date</th>
+                                <th>Sell Date(s)</th>
+                                <th class="num">Days Held</th>
                                 <th class="num">Qty</th>
                                 <th class="num">Buy Price</th>
                                 <th class="num">Avg Sell Price</th>
@@ -344,7 +347,7 @@ function renderTransactions(transactions) {
     const tbody = document.getElementById('transactions-table');
 
     if (!transactions || transactions.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);">No sell transactions found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--muted);">No sell transactions found</td></tr>';
         return;
     }
 
@@ -362,13 +365,20 @@ function renderTransactions(transactions) {
             ? group.children[0].transactionDate
             : group.children.length + ' sells';
 
+        const buyDateLabel = group.buyDate || '-';
+        const holdingLabel = group.holdingDaysCount > 0
+            ? Math.round(group.totalHoldingDays / group.holdingDaysCount)
+            : (group.children.length === 1 && group.children[0].holdingDays != null ? group.children[0].holdingDays : '-');
+
         // Parent / group row
         html += `<tr class="${hasChildren ? 'group-row' : ''}">`;
         html += `<td>${hasChildren
             ? '<button class="expand-btn" onclick="toggleGroup(\'' + gId + '\', this)">+</button>'
             : ''}</td>`;
         html += `<td><strong>${group.ticker}</strong></td>`;
+        html += `<td>${buyDateLabel}</td>`;
         html += `<td>${dateLabel}</td>`;
+        html += `<td class="num">${holdingLabel}</td>`;
         html += `<td class="num">${group.quantity}</td>`;
         html += `<td class="num">\u20B9${fmt(buyPrice, 2)}</td>`;
         html += `<td class="num">\u20B9${fmt(group.avgSellPrice, 2)}</td>`;
@@ -387,7 +397,9 @@ function renderTransactions(transactions) {
                 html += `<tr class="child-row ${gId}" style="display:none;">`;
                 html += `<td></td>`;
                 html += `<td>${child.ticker}</td>`;
+                html += `<td>${child.buyDate || '-'}</td>`;
                 html += `<td>${child.transactionDate}</td>`;
+                html += `<td class="num">${child.holdingDays != null ? child.holdingDays : '-'}</td>`;
                 html += `<td class="num">${child.quantity}</td>`;
                 html += `<td class="num">\u20B9${fmt(cBuy, 2)}</td>`;
                 html += `<td class="num">\u20B9${fmt(cSell, 2)}</td>`;
@@ -417,6 +429,8 @@ function groupByTickerAndBuyPrice(transactions) {
             dayMerged[key] = {
                 ticker: tx.ticker,
                 transactionDate: tx.transactionDate,
+                buyDate: tx.buyDate || null,
+                holdingDays: tx.holdingDays != null ? tx.holdingDays : null,
                 quantity: 0,
                 totalValue: 0,
                 realizedPnl: 0,
@@ -431,10 +445,14 @@ function groupByTickerAndBuyPrice(transactions) {
         g.totalValue += tx.totalValue || (qty * sellPrice);
         g.realizedPnl += tx.realizedPnl || 0;
         g.totalBuyCost += qty * buyPrice;
+        // Keep earliest buy date
+        if (tx.buyDate && (!g.buyDate || tx.buyDate < g.buyDate)) g.buyDate = tx.buyDate;
     }
     const mergedTxs = Object.values(dayMerged).map(g => ({
         ticker: g.ticker,
         transactionDate: g.transactionDate,
+        buyDate: g.buyDate,
+        holdingDays: g.holdingDays,
         quantity: g.quantity,
         avgBuyPriceAtSell: g.quantity > 0 ? g.totalBuyCost / g.quantity : 0,
         price: g.quantity > 0 ? g.totalValue / g.quantity : 0,
@@ -450,10 +468,13 @@ function groupByTickerAndBuyPrice(transactions) {
         if (!groups[key]) {
             groups[key] = {
                 ticker: tx.ticker,
+                buyDate: tx.buyDate || null,
                 quantity: 0,
                 totalValue: 0,
                 realizedPnl: 0,
                 totalBuyCost: 0,
+                totalHoldingDays: 0,
+                holdingDaysCount: 0,
                 children: []
             };
         }
@@ -462,6 +483,9 @@ function groupByTickerAndBuyPrice(transactions) {
         g.totalValue += tx.totalValue;
         g.realizedPnl += tx.realizedPnl;
         g.totalBuyCost += tx.quantity * (tx.avgBuyPriceAtSell || 0);
+        // Keep earliest buy date
+        if (tx.buyDate && (!g.buyDate || tx.buyDate < g.buyDate)) g.buyDate = tx.buyDate;
+        if (tx.holdingDays != null) { g.totalHoldingDays += tx.holdingDays; g.holdingDaysCount++; }
         g.children.push(tx);
     }
 

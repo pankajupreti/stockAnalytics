@@ -35,12 +35,13 @@
             color: #fff;
             background: rgba(255,255,255,.1);
         }
-        h2 { color: #1f2937; margin: 20px; }
-        .stats { margin: 0 20px 15px; color: #666; }
+        .wrap { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        h2 { color: #1f2937; margin: 0 0 14px; }
+        .stats { margin: 0 0 15px; color: #666; }
         .filter-tabs {
             display: flex;
             gap: 10px;
-            margin: 15px 20px;
+            margin: 0 0 15px;
         }
         .filter-tabs button {
             padding: 10px 20px;
@@ -67,7 +68,7 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
-            margin: 15px 20px;
+            margin: 0 0 15px;
             padding: 12px;
             background: #fff;
             border: 1px solid #ddd;
@@ -99,9 +100,9 @@
             color: #111827;
         }
         table {
-            width: calc(100% - 40px);
+            width: 100%;
             border-collapse: collapse;
-            margin: 0 20px;
+            margin: 0;
             background: white;
             border-radius: 8px;
             overflow: hidden;
@@ -126,7 +127,7 @@
         .near-low { background: #fee2e2 !important; }
         .at-low { background: #dc2626 !important; color: white; }
         .pagination {
-            margin: 15px 20px;
+            margin: 15px 0 0;
             display: flex;
             align-items: center;
             gap: 10px;
@@ -162,7 +163,7 @@
         <a href="results-analysis.html">Results</a>
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
-        <a href="health.html">Health</a>
+        <a href="health.html" class="admin-only">Health</a>
     </div>
 </div>
 
@@ -172,28 +173,30 @@
 </div>
 
 <div id="main-section" style="display:none;">
-    <h2>52-Week Breakouts</h2>
-    <div class="stats">Found <strong id="total-count">0</strong> stocks matching criteria</div>
+    <div class="wrap">
+        <h2>52-Week Breakouts</h2>
+        <div class="stats">Found <strong id="total-count">0</strong> stocks matching criteria</div>
 
-    <div class="filter-tabs">
-        <button id="filter-high" class="high-btn active">Near 52W High</button>
-        <button id="filter-low" class="low-btn">Near 52W Low</button>
-        <button id="filter-all">All Stocks</button>
-    </div>
+        <div class="filter-tabs">
+            <button id="filter-high" class="high-btn active">Near 52W High</button>
+            <button id="filter-low" class="low-btn">Near 52W Low</button>
+            <button id="filter-all">All Stocks</button>
+        </div>
 
-    <div class="filters">
-        <input type="text" id="search" placeholder="Search Ticker or Name">
-        Within <input type="number" id="threshold" value="5" style="width:60px;" step="0.5" min="0" max="50">% of 52W
-        <span id="threshold-label">High</span>
-        <button id="apply-btn" class="btn-primary">Apply</button>
-    </div>
+        <div class="filters">
+            <input type="text" id="search" placeholder="Search Ticker or Name">
+            Within <input type="number" id="threshold" value="5" style="width:60px;" step="0.5" min="0" max="50">% of 52W
+            <span id="threshold-label">High</span>
+            <button id="apply-btn" class="btn-primary">Apply</button>
+        </div>
 
-    <div id="table-container">(Loading...)</div>
+        <div id="table-container">(Loading...)</div>
 
-    <div class="pagination">
-        <button id="prev-page" class="btn-secondary">Prev</button>
-        <span id="page-info">Page 1</span>
-        <button id="next-page" class="btn-secondary">Next</button>
+        <div class="pagination">
+            <button id="prev-page" class="btn-secondary">Prev</button>
+            <span id="page-info">Page 1</span>
+            <button id="next-page" class="btn-secondary">Next</button>
+        </div>
     </div>
 </div>
 

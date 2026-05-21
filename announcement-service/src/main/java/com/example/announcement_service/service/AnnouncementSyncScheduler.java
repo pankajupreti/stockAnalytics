@@ -31,6 +31,7 @@ public class AnnouncementSyncScheduler {
     private final AnnouncementService announcementService;
     private final AnnouncementRepository announcementRepository;
     private final ResultsServiceClient resultsServiceClient;
+    private final TickerMappingService tickerMappingService;
 
     @Value("${announcement.sync.enabled:true}")
     private boolean syncEnabled;
@@ -174,6 +175,43 @@ public class AnnouncementSyncScheduler {
 
         } catch (Exception e) {
             log.error("Error in Screener refresh job: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Auto-discover ticker mappings for scrip codes that have announcements but no NSE ticker mapping.
+     * Runs daily at 8 PM IST (after daily sync at 7 PM, so fresh announcements are in DB).
+     * Calls BSE API to resolve scrip codes to NSE tickers, then backfills announcements.
+     */
+    @Scheduled(cron = "0 0 20 * * *", zone = "${announcement.sync.timezone:Asia/Kolkata}")
+    public void autoDiscoverMissingMappings() {
+        if (!syncEnabled) {
+            return;
+        }
+
+        log.info("Starting auto-discovery of missing ticker mappings");
+        try {
+            LocalDateTime afterDate = LocalDateTime.now(ZoneId.of(timezone)).minusDays(30);
+            List<Object[]> missing = announcementRepository.findMissingMappings(afterDate);
+
+            if (missing.isEmpty()) {
+                log.info("No missing ticker mappings found");
+                return;
+            }
+
+            log.info("Found {} scrip codes with announcements but no ticker mapping", missing.size());
+
+            int discovered = tickerMappingService.discoverMissingMappings(missing, 100);
+
+            if (discovered > 0) {
+                log.info("Discovered {} new ticker mappings, backfilling announcements...", discovered);
+                int backfilled = announcementService.updateMissingNseTickers();
+                log.info("Backfilled {} announcements with newly discovered mappings", backfilled);
+            } else {
+                log.info("No new mappings discovered from BSE API");
+            }
+        } catch (Exception e) {
+            log.error("Error during auto-discovery of ticker mappings: {}", e.getMessage(), e);
         }
     }
 

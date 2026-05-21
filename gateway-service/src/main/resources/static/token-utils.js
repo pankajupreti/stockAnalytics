@@ -307,6 +307,32 @@ if (!window.location.pathname.includes("index.html") && window.location.pathname
     authLog("Auto-init SKIPPED for login page:", window.location.pathname);
 }
 
+/**
+ * Admin email whitelist
+ */
+const ADMIN_EMAILS = ["panky070@gmail.com"];
+
+function isAdmin() {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return false;
+    const claims = parseJwt(token);
+    return ADMIN_EMAILS.includes(claims.email);
+}
+
+/**
+ * Hide admin-only elements for non-admin users
+ */
+function hideAdminElements() {
+    if (!isAdmin()) {
+        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    }
+}
+
+// Run after DOM is ready
+if (!window.location.pathname.includes("index.html") && window.location.pathname !== "/") {
+    document.addEventListener("DOMContentLoaded", hideAdminElements);
+}
+
 // Export for use by other scripts
 window.TokenUtils = {
     TOKEN_KEY,
@@ -317,5 +343,7 @@ window.TokenUtils = {
     scheduleTokenRefresh,
     getAuthHeader,
     fetchWithAuth,
-    initTokenManagement
+    initTokenManagement,
+    isAdmin,
+    hideAdminElements
 };

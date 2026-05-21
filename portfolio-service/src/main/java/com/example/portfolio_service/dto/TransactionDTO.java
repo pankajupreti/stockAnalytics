@@ -22,4 +22,6 @@ public class TransactionDTO {
 
     // Calculated fields
     private BigDecimal totalValue;        // quantity * price
+    private LocalDate buyDate;            // original buy date (for SELL transactions)
+    private Long holdingDays;             // days held from buy to sell
 }
