@@ -309,11 +309,11 @@ public class PortfolioReturnsService {
                     ? firstSnapshot.get().getTotalWealth()
                     : firstSnapshot.get().getTotalValue();
 
-            // Get total invested from TRANSACTIONS as of first date and today
-            // This gives us the actual capital flow, not just current positions' cost
+            // Get total invested from TRANSACTIONS using CREATED_AT date (when stock was added to system).
+            // This ensures adding stocks retroactively (with old buy dates) doesn't spike today's snapshot.
             LocalDate firstDate = firstSnapshot.get().getSnapshotDate();
-            BigDecimal firstTotalBuys = transactionRepository.getTotalInvestedAsOfDate(userSub, firstDate);
-            BigDecimal currentTotalBuys = transactionRepository.getTotalInvestedAsOfDate(userSub, today);
+            BigDecimal firstTotalBuys = transactionRepository.getTotalInvestedByCreatedDate(userSub, firstDate);
+            BigDecimal currentTotalBuys = transactionRepository.getTotalInvestedByCreatedDate(userSub, today);
 
             if (firstTotalBuys == null || firstTotalBuys.compareTo(BigDecimal.ZERO) == 0) {
                 firstTotalBuys = firstWealth;
@@ -388,14 +388,18 @@ public class PortfolioReturnsService {
         PortfolioSnapshot first = snapshots.get(0);
         BigDecimal firstWealth = first.getTotalWealth() != null ? first.getTotalWealth() : first.getTotalValue();
 
-        // Load all BUY transactions once, sorted by date, and build cumulative invested map
+        // Load all BUY transactions once and build cumulative invested map keyed by CREATED_AT date.
+        // We use createdAt (when the stock was actually added to the system) instead of transactionDate
+        // (the historical buy date) so that adding stocks retroactively doesn't spike past snapshots.
         List<Transaction> buyTxns = transactionRepository.findByUserSubAndTypeOrderByTransactionDateAsc(
                 userSub, Transaction.TransactionType.BUY);
         java.util.TreeMap<LocalDate, BigDecimal> cumulativeBuys = new java.util.TreeMap<>();
         BigDecimal runningTotal = BigDecimal.ZERO;
+        // Sort by createdAt for cumulative tracking
+        buyTxns.sort((a, b) -> a.getCreatedAt().compareTo(b.getCreatedAt()));
         for (Transaction tx : buyTxns) {
             runningTotal = runningTotal.add(tx.getPrice().multiply(BigDecimal.valueOf(tx.getQuantity())));
-            cumulativeBuys.put(tx.getTransactionDate(), runningTotal);
+            cumulativeBuys.put(tx.getCreatedAt().toLocalDate(), runningTotal);
         }
 
         // Helper: get total buys as-of a date using the TreeMap (O(log n) instead of DB query)
@@ -410,7 +414,8 @@ public class PortfolioReturnsService {
         List<Double> normalizedValues = new ArrayList<>();
         List<Double> rawValues = new ArrayList<>();
         List<Double> wealthValues = new ArrayList<>();
-
+        List<Double> investedValues = new ArrayList<>();
+        List<Double> rawInvestedValues = new ArrayList<>();
         final BigDecimal baseBuys = firstTotalBuys;
 
         for (PortfolioSnapshot s : snapshots) {
@@ -436,6 +441,18 @@ public class PortfolioReturnsService {
                         .multiply(BigDecimal.valueOf(100)).doubleValue();
             }
             normalizedValues.add(Math.round(normalized * 100.0) / 100.0);
+
+            // Normalized invested capital (base=100, same scale as portfolio performance)
+            double normalizedInvested = 100.0;
+            if (baseBuys.compareTo(BigDecimal.ZERO) > 0) {
+                normalizedInvested = buysAsOfDate.divide(baseBuys, 4, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100)).doubleValue();
+            }
+            investedValues.add(Math.round(normalizedInvested * 100.0) / 100.0);
+
+            // Raw invested amount in rupees
+            double rawInvested = s.getTotalInvested() != null ? s.getTotalInvested().doubleValue() : 0.0;
+            rawInvestedValues.add(Math.round(rawInvested * 100.0) / 100.0);
         }
 
         double lastNormalized = normalizedValues.get(normalizedValues.size() - 1);
@@ -448,6 +465,8 @@ public class PortfolioReturnsService {
                 .dates(dates)
                 .normalizedValues(normalizedValues)
                 .rawValues(wealthValues)
+                .investedValues(investedValues)
+                .rawInvestedValues(rawInvestedValues)
                 .dataPoints(snapshots.size())
                 .firstDate(first.getSnapshotDate())
                 .lastDate(snapshots.get(snapshots.size() - 1).getSnapshotDate())
@@ -533,11 +552,11 @@ public class PortfolioReturnsService {
                             ? firstSnapshot.get().getTotalWealth()
                             : firstSnapshot.get().getTotalValue();
 
-                    // Use TRANSACTIONS for capital tracking (same as captureSnapshot)
-                    // totalInvested from positions is WRONG — it excludes sold positions
+                    // Use TRANSACTIONS with CREATED_AT date for capital tracking (same as captureSnapshot).
+                    // Using createdAt ensures retroactive stock additions don't spike past snapshots.
                     LocalDate firstDate = firstSnapshot.get().getSnapshotDate();
-                    BigDecimal firstTotalBuys = transactionRepository.getTotalInvestedAsOfDate(userSub, firstDate);
-                    BigDecimal currentTotalBuys = transactionRepository.getTotalInvestedAsOfDate(userSub, today);
+                    BigDecimal firstTotalBuys = transactionRepository.getTotalInvestedByCreatedDate(userSub, firstDate);
+                    BigDecimal currentTotalBuys = transactionRepository.getTotalInvestedByCreatedDate(userSub, today);
 
                     if (firstTotalBuys == null || firstTotalBuys.compareTo(BigDecimal.ZERO) == 0) {
                         firstTotalBuys = firstWealth;
@@ -723,6 +742,8 @@ public class PortfolioReturnsService {
         private List<String> dates;
         private List<Double> normalizedValues;
         private List<Double> rawValues;
+        private List<Double> investedValues;  // normalized capital invested (base=100)
+        private List<Double> rawInvestedValues;  // actual invested amount in rupees
         private Integer dataPoints;
         private LocalDate firstDate;
         private LocalDate lastDate;
@@ -734,6 +755,8 @@ public class PortfolioReturnsService {
                     .dates(List.of())
                     .normalizedValues(List.of())
                     .rawValues(List.of())
+                    .investedValues(List.of())
+                    .rawInvestedValues(List.of())
                     .dataPoints(0)
                     .firstDate(null)
                     .lastDate(null)

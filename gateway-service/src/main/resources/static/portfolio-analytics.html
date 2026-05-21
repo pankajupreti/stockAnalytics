@@ -47,6 +47,7 @@
         th{ background:#f9fafb; font-weight:600; color:#374151; }
         tr:hover td{ background:#fafbfc; }
         td.num{ text-align:right; font-family:monospace; }
+        th.num{ text-align:right; }
 
         .pos{ color:#059669; }
         .neg{ color:#dc2626; }
@@ -84,7 +85,7 @@
         <a href="results-analysis.html">Results</a>
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
-        <a href="health.html">Health</a>
+        <a href="health.html" class="admin-only">Health</a>
     </div>
 </div>
 
@@ -240,6 +241,23 @@
                     </div>
                     <div style="margin-top:12px;display:flex;justify-content:center;gap:20px;flex-wrap:wrap;" id="historical-legend">
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capital Invested vs Portfolio Performance Chart -->
+        <div class="section">
+            <div class="panel" style="border-left:4px solid #f97316;">
+                <h3>Capital Invested vs Portfolio Performance</h3>
+                <p style="font-size:12px;color:var(--muted);margin-top:0;">
+                    Both lines start at 100. When the orange line rises but blue stays flat — new capital was added.
+                    When blue rises but orange stays flat — actual returns.
+                </p>
+                <div id="invested-chart-container" style="display:none;">
+                    <div class="chart-container" style="height:350px;">
+                        <canvas id="invested-vs-value-chart"></canvas>
+                    </div>
+                    <div style="margin-top:10px;display:flex;justify-content:center;gap:24px;" id="invested-legend"></div>
                 </div>
             </div>
         </div>
@@ -1416,6 +1434,158 @@ function renderHistoricalChart(data, portfolioData) {
     }).join('');
 
     document.getElementById('historical-legend').innerHTML = legendHtml;
+
+    // Render invested vs value chart
+    renderInvestedVsValueChart(portfolioData);
+}
+
+let investedVsValueChart = null;
+
+function renderInvestedVsValueChart(portfolioData) {
+    if (!portfolioData || !portfolioData.success || !portfolioData.investedValues || portfolioData.investedValues.length === 0) {
+        return;
+    }
+
+    document.getElementById('invested-chart-container').style.display = 'block';
+
+    const dates = portfolioData.dates;
+    const portfolioNorm = portfolioData.normalizedValues;
+    const investedNorm = portfolioData.investedValues;
+    const rawWealth = portfolioData.rawValues || [];
+    const rawInvested = portfolioData.rawInvestedValues || [];
+
+    // Sample for readability (~40 labels max)
+    const sampleRate = Math.max(1, Math.floor(dates.length / 40));
+    const sampledDates = [];
+    const sampledPortfolio = [];
+    const sampledInvested = [];
+    const sampledRawWealth = [];
+    const sampledRawInvested = [];
+
+    for (let i = 0; i < dates.length; i++) {
+        if (i % sampleRate === 0 || i === dates.length - 1) {
+            const parts = dates[i].split('-');
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            sampledDates.push(d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }));
+            sampledPortfolio.push(portfolioNorm[i]);
+            sampledInvested.push(investedNorm[i]);
+            sampledRawWealth.push(rawWealth[i] || 0);
+            sampledRawInvested.push(rawInvested[i] || 0);
+        }
+    }
+
+    const ctx = document.getElementById('invested-vs-value-chart').getContext('2d');
+    if (investedVsValueChart) investedVsValueChart.destroy();
+
+    investedVsValueChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sampledDates,
+            datasets: [
+                {
+                    label: 'Portfolio Performance',
+                    data: sampledPortfolio,
+                    borderColor: '#0369a1',
+                    backgroundColor: 'rgba(3,105,161,0.08)',
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.2,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: '#0369a1'
+                },
+                {
+                    label: 'Capital Invested',
+                    data: sampledInvested,
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249,115,22,0.08)',
+                    borderWidth: 2,
+                    borderDash: [6, 3],
+                    fill: true,
+                    tension: 0,
+                    pointRadius: 0,
+                    pointHoverRadius: 5
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (tipCtx) => {
+                            if (tipCtx.parsed.y === null) return null;
+                            const idx = tipCtx.dataIndex;
+                            const change = tipCtx.parsed.y - 100;
+                            const sign = change >= 0 ? '+' : '';
+                            const pctStr = sign + change.toFixed(2) + '%';
+                            if (tipCtx.datasetIndex === 0) {
+                                // Portfolio line — show actual wealth
+                                const raw = sampledRawWealth[idx];
+                                const rawStr = raw >= 100000 ? '₹' + (raw / 100000).toFixed(2) + 'L' : '₹' + fmt(raw);
+                                return 'Portfolio: ' + rawStr + ' (' + pctStr + ')';
+                            } else {
+                                // Invested line — show actual invested
+                                const raw = sampledRawInvested[idx];
+                                const rawStr = raw >= 100000 ? '₹' + (raw / 100000).toFixed(2) + 'L' : '₹' + fmt(raw);
+                                return 'Invested: ' + rawStr + ' (' + pctStr + ')';
+                            }
+                        },
+                        afterBody: (tipItems) => {
+                            if (tipItems.length < 2) return '';
+                            const idx = tipItems[0].dataIndex;
+                            const wealth = sampledRawWealth[idx] || 0;
+                            const invested = sampledRawInvested[idx] || 0;
+                            const pnl = wealth - invested;
+                            const pnlPct = invested > 0 ? ((pnl / invested) * 100).toFixed(2) : '0.00';
+                            const pnlSign = pnl >= 0 ? '+' : '';
+                            const pnlStr = pnl >= 100000 || pnl <= -100000 ? '₹' + (pnl / 100000).toFixed(2) + 'L' : '₹' + fmt(Math.abs(pnl));
+                            return '\nP&L: ' + pnlSign + pnlStr + ' (' + pnlSign + pnlPct + '%)';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: { display: true, text: 'Normalized (Base = 100)' },
+                    grid: { color: '#f3f4f6' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { maxRotation: 45, font: { size: 10 } }
+                }
+            }
+        }
+    });
+
+    // Custom legend with change %
+    const lastPortfolio = portfolioNorm[portfolioNorm.length - 1];
+    const lastInvested = investedNorm[investedNorm.length - 1];
+    const pfChange = lastPortfolio - 100;
+    const invChange = lastInvested - 100;
+    const pfCls = pfChange >= 0 ? 'pos' : 'neg';
+    const pfSign = pfChange >= 0 ? '+' : '';
+    const invCls = invChange >= 0 ? 'pos' : 'neg';
+    const invSign = invChange >= 0 ? '+' : '';
+
+    document.getElementById('invested-legend').innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span style="width:16px;height:3px;background:#0369a1;border-radius:1px;"></span>
+            <span style="font-size:12px;"><strong>Portfolio</strong>:
+                <span class="${pfCls}">${pfSign}${pfChange.toFixed(2)}%</span>
+            </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+            <span style="width:16px;height:0;border-top:2px dashed #f97316;"></span>
+            <span style="font-size:12px;"><strong>Capital Invested</strong>:
+                <span class="${invCls}">${invSign}${invChange.toFixed(2)}%</span>
+            </span>
+        </div>
+    `;
 }
 
 // Migrate positions to transactions
