@@ -86,6 +86,7 @@
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
         <a href="health.html" class="admin-only">Health</a>
+        <a href="admin.html" class="admin-only">Admin</a>
     </div>
 </div>
 
@@ -550,18 +551,15 @@
 </div>
 
 <script src="token-utils.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>checkProAccess();</script>
 <script>
 const API_BASE = '/portfolio-service';
 let sectorChart = null;
 let sectorPerfChart = null;
 
-// Get token (will be refreshed by token-utils if needed)
-function getToken() {
-    return localStorage.getItem('access_token');
-}
-
 // Check auth on load
-if (!getToken()) {
+if (!hasValidSession()) {
     window.location.href = 'index.html';
 }
 

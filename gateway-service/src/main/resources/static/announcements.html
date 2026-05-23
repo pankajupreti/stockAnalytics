@@ -355,6 +355,7 @@
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
         <a href="health.html" class="admin-only">Health</a>
+        <a href="admin.html" class="admin-only">Admin</a>
     </div>
 </div>
 
@@ -407,13 +408,12 @@
 </div>
 
 <script src="token-utils.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>checkProAccess();</script>
 <script>
-const tokenKey = "access_token";
-
-// Use authenticated endpoint if token exists, otherwise fall back to test endpoint
+// Use authenticated endpoint if session exists, otherwise fall back to test endpoint
 function getAnnApiBase() {
-    const token = localStorage.getItem(tokenKey);
-    if (token) {
+    if (hasValidSession()) {
         return window.location.hostname === "localhost"
             ? "http://localhost:8082/announcement-service/api/announcements"  // via gateway
             : `${window.location.origin}/announcement-service/api/announcements`;
@@ -716,20 +716,15 @@ const tickerInput = document.getElementById('ticker-input');
 const dropdown = document.getElementById('autocomplete-dropdown');
 
 function getToken() {
-    return localStorage.getItem(tokenKey);
+    return hasValidSession() ? "cookie" : null;
 }
 
 function authHeaders() {
-    const token = getToken();
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+    return {};
 }
 
 function authHeadersJSON() {
-    const token = getToken();
-    return token ? {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-    } : { 'Content-Type': 'application/json' };
+    return { 'Content-Type': 'application/json' };
 }
 
 // Mark announcements as seen
@@ -738,10 +733,9 @@ async function markAnnouncementsAsSeen(newsIds) {
 
     try {
         // Use test endpoint for local dev (no auth required), authenticated endpoint otherwise
-        const token = getToken();
         let url, headers;
 
-        if (token && window.location.hostname !== "localhost") {
+        if (hasValidSession() && window.location.hostname !== "localhost") {
             // Production: use authenticated endpoint via gateway with auto token refresh
             url = `${getAnnApiBase()}/seen`;
             const res = await fetchWithAuth(url, {

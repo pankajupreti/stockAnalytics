@@ -453,6 +453,7 @@
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
         <a href="health.html" class="admin-only">Health</a>
+        <a href="admin.html" class="admin-only">Admin</a>
     </div>
 </div>
 
@@ -584,22 +585,16 @@
         const logoutBtn = document.getElementById("logout-btn");
 
         async function doLogout() {
-            const refreshToken = localStorage.getItem("refresh_token");
-
-            if (refreshToken) {
-                try {
-                    await fetch("/oauth-service/token/revoke", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ refreshToken: refreshToken })
-                    });
-                } catch (e) {
-                    console.log("Token revoke failed:", e);
-                }
+            try {
+                await fetch("/oauth-service/token/revoke", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({})
+                });
+            } catch (e) {
+                console.log("Token revoke failed:", e);
             }
-
-            localStorage.removeItem("access_token");
-            localStorage.removeItem("refresh_token");
             window.location.href = "index.html";
         }
 

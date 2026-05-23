@@ -1,7 +1,4 @@
-const tokenKey = "access_token";
-const refreshTokenKey = "refresh_token";
 let currentPage = 0;
-let refreshTimeoutId = null;
 
 // Anchor date state
 let currentAnchorDate = null;
@@ -19,34 +16,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // --- Logout with token revocation ---
 document.getElementById("logout-btn")?.addEventListener("click", async () => {
-    const refreshToken = localStorage.getItem(refreshTokenKey);
-
-    // Cancel any scheduled refresh
-    if (refreshTimeoutId) {
-        clearTimeout(refreshTimeoutId);
-        refreshTimeoutId = null;
+    // Revoke token on server (cookies sent automatically)
+    try {
+        await fetch("/oauth-service/token/revoke", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({})
+        });
+    } catch (e) {
+        console.log("Token revoke failed (may already be revoked):", e);
     }
 
-    // Revoke token on server
-    if (refreshToken) {
-        try {
-            await fetch("/oauth-service/token/revoke", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ refreshToken: refreshToken })
-            });
-        } catch (e) {
-            console.log("Token revoke failed (may already be revoked):", e);
-        }
-    }
-
-    // Clear local storage
-    localStorage.removeItem(tokenKey);
-    localStorage.removeItem(refreshTokenKey);
     currentPage = 0;
-
-    document.getElementById("dashboard-section").style.display = "none";
-    document.getElementById("login-section").style.display = "block";
+    window.location.href = "index.html";
 });
 
 // NOTE: isTokenExpired, refreshAccessToken, scheduleTokenRefresh are now in token-utils.js
@@ -196,9 +179,8 @@ function selectSearchItem(item) {
     dropdown.classList.remove("show");
     selectedDropdownIndex = -1;
 
-    // Optionally auto-apply the filter
-    const token = localStorage.getItem(tokenKey);
-    if (token) {
+    // Auto-apply the filter if logged in
+    if (hasValidSession()) {
         currentPage = 0;
         fetchDashboard();
     }
@@ -612,17 +594,6 @@ async function loadUserInfo() {
 }
 
 
-// --- tiny jwt decoder ---
-function parseJwt (token) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(base64));
-  } catch {
-    return {};
-  }
-}
-
 // --- Fetch dashboard data with automatic token refresh on 401 ---
 async function fetchDashboard() {
   try {
@@ -688,8 +659,7 @@ async function fetchDashboard() {
 
 // Auto-refresh dashboard every 5 minutes (backend updates prices via Google Sheets + Yahoo Finance)
 setInterval(() => {
-  const token = localStorage.getItem(tokenKey);
-  if (token) fetchDashboard();
+  if (hasValidSession()) fetchDashboard();
 }, 5 * 60 * 1000);
 
 /**
@@ -904,11 +874,11 @@ function scrollToLogin() {
     }
 }
 // --- Show dashboard ---
-function showDashboard(token) {
+function showDashboard() {
   document.getElementById("dashboard-section").style.display = "block";
 
-  const claims = parseJwt(token);
-  const name = claims.name || claims.email || claims.sub || "User";
+  const meta = getTokenMeta();
+  const name = meta ? (meta.name || meta.email || "User") : "User";
   document.getElementById("welcome-text").textContent = `Welcome, ${name}!`;
 
   fetchDashboard();
@@ -921,8 +891,7 @@ document.getElementById("apply-filters").addEventListener("click", () => {
   // Auto-select sort based on active filters
   autoSelectSort();
 
-  const token = localStorage.getItem(tokenKey);
-  if (token) fetchDashboard();
+  if (hasValidSession()) fetchDashboard();
 });
 
 // Auto-select appropriate sort when filters are applied
@@ -1019,8 +988,7 @@ function clearFilters() {
 
   document.getElementById("active-filters").style.display = "none";
 
-  const token = localStorage.getItem(tokenKey);
-  if (token) fetchDashboard();
+  if (hasValidSession()) fetchDashboard();
 }
 
 // Clear filters button handler
@@ -1030,47 +998,37 @@ document.getElementById("clear-filters")?.addEventListener("click", clearFilters
 document.getElementById("prev-page").addEventListener("click", () => {
   if (currentPage > 0) {
     currentPage--;
-    const token = localStorage.getItem(tokenKey);
-    if (token) fetchDashboard();
+    fetchDashboard();
   }
 });
 
 document.getElementById("next-page").addEventListener("click", () => {
   currentPage++;
-  const token = localStorage.getItem(tokenKey);
-  if (token) fetchDashboard();
+  fetchDashboard();
 });
 
 // --- Init ---
 (function init() {
   try {
     const isDashboard = window.location.pathname.includes("dashboard");
+    const hasSession = hasValidSession();
 
-    // Check for tokens in URL hash (after OAuth redirect)
-    if (window.location.hash && window.location.hash.includes("access_token=")) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get("access_token");
-      const refreshToken = hashParams.get("refresh_token");
+    // If on index.html with a valid session cookie, redirect to dashboard
+    if (hasSession && !isDashboard) {
+      window.location.href = "dashboard.html";
+      return;
+    }
 
-      if (accessToken) {
-        localStorage.setItem(tokenKey, accessToken);
-        console.log("Access token saved");
-      }
-      if (refreshToken) {
-        localStorage.setItem(refreshTokenKey, refreshToken);
-        console.log("Refresh token saved");
-      }
-
+    // If on index.html without session, try refresh (browser may have refresh_token cookie)
+    if (!hasSession && !isDashboard) {
+      // Stay on landing page — refresh will happen when user navigates to dashboard
       // Check if "stay logged in" was selected before login
       const stayLoggedInPending = localStorage.getItem("stay_logged_in_pending");
-      if (stayLoggedInPending === "true" && accessToken) {
-        // Send preference to backend
+      if (stayLoggedInPending === "true" && hasSession) {
         fetch("/oauth-service/user/stay-logged-in", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + accessToken
-          },
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ stayLoggedIn: true })
         }).then(() => {
           console.log("Stay logged in preference saved");
@@ -1079,85 +1037,41 @@ document.getElementById("next-page").addEventListener("click", () => {
         });
       }
       localStorage.removeItem("stay_logged_in_pending");
-
-      // Clear hash and redirect to dashboard
-      window.location.hash = "";
-      window.location.href = "dashboard.html";
       return;
     }
 
-    const token = localStorage.getItem(tokenKey);
-    const refreshToken = localStorage.getItem(refreshTokenKey);
-
-    // If on index.html with a valid token, redirect to dashboard
-    if (token && !isDashboard) {
-      if (!isTokenExpired(token)) {
-        window.location.href = "dashboard.html";
-        return;
-      }
-      // Token expired - try refresh
-      if (refreshToken) {
-        refreshAccessToken().then(success => {
-          if (success) {
-            window.location.href = "dashboard.html";
-          }
-        });
-        return;
-      }
-      // Expired with no refresh token - clear and stay on login
-      localStorage.removeItem(tokenKey);
+    if (!hasSession && isDashboard) {
+      // No valid session on dashboard — try to refresh
+      console.log("No valid session on dashboard, attempting refresh...");
+      refreshAccessToken().then(success => {
+        if (success) {
+          scheduleTokenRefresh();
+          showDashboard();
+        } else {
+          window.location.href = "index.html";
+        }
+      });
+      return;
     }
 
-    if (!token && isDashboard) {
-      // No access token but have refresh token - try to refresh
-      if (refreshToken) {
-        console.log("No access token, attempting refresh...");
+    if (hasSession && isDashboard) {
+      // Check if token is about to expire
+      if (isTokenExpired()) {
+        console.log("Token expired, attempting refresh...");
         refreshAccessToken().then(success => {
           if (success) {
-            const newToken = localStorage.getItem(tokenKey);
-            // Schedule next refresh BEFORE showing dashboard
-            scheduleTokenRefresh(newToken);
-            showDashboard(newToken);
+            scheduleTokenRefresh();
+            showDashboard();
           } else {
             window.location.href = "index.html";
           }
         });
         return;
       }
-      // No tokens at all - redirect to landing
-      window.location.href = "index.html";
-      return;
-    }
-
-    if (token && isDashboard) {
-      // Check if token is expired
-      if (isTokenExpired(token)) {
-        console.log("Token expired, attempting refresh...");
-        if (refreshToken) {
-          refreshAccessToken().then(success => {
-            if (success) {
-              const newToken = localStorage.getItem(tokenKey);
-              // Schedule next refresh BEFORE showing dashboard
-              scheduleTokenRefresh(newToken);
-              showDashboard(newToken);
-            } else {
-              localStorage.removeItem(tokenKey);
-              localStorage.removeItem(refreshTokenKey);
-              window.location.href = "index.html";
-            }
-          });
-          return;
-        } else {
-          localStorage.removeItem(tokenKey);
-          localStorage.removeItem(refreshTokenKey);
-          window.location.href = "index.html";
-          return;
-        }
-      }
 
       // Token is valid - show dashboard and schedule refresh
-      scheduleTokenRefresh(token);
-      showDashboard(token);
+      scheduleTokenRefresh();
+      showDashboard();
     }
   } catch (e) {
     console.error("Init failed", e);
@@ -1165,8 +1079,7 @@ document.getElementById("next-page").addEventListener("click", () => {
 })();
 
 window.addEventListener("load", () => {
-  const token = localStorage.getItem("access_token");
-  if (token) return; // already logged in, no need to warm
+  if (hasValidSession()) return; // already logged in, no need to warm
 
   // Warm GATEWAY + OAUTH
   fetch("/oauth-service/oauth2/authorization/google", {

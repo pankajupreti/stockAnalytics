@@ -164,6 +164,7 @@
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
         <a href="health.html" class="admin-only">Health</a>
+        <a href="admin.html" class="admin-only">Admin</a>
     </div>
 </div>
 
@@ -202,14 +203,11 @@
 
 <script src="token-utils.js"></script>
 <script>
-const tokenKey = "access_token";
 let currentPage = 0;
 let currentFilter = "high";
 
 document.addEventListener("DOMContentLoaded", function() {
-    const token = localStorage.getItem(tokenKey);
-
-    if (!token) {
+    if (!hasValidSession()) {
         document.getElementById("login-section").style.display = "block";
         document.getElementById("main-section").style.display = "none";
     } else {

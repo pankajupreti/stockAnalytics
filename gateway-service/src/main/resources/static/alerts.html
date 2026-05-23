@@ -189,6 +189,7 @@
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html">PEAD</a>
         <a href="health.html" class="admin-only">Health</a>
+        <a href="admin.html" class="admin-only">Admin</a>
     </div>
 </div>
 
@@ -257,23 +258,15 @@
 </div>
 
 <script src="token-utils.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>checkProAccess();</script>
 <script>
-const tokenKey = "access_token";
 // Use authenticated endpoints via gateway
 const ALERT_API_BASE = window.location.hostname === "localhost"
     ? "http://localhost:8082/alert-service/api/alerts"
     : `${window.location.origin}/alert-service/api/alerts`;
 
 let allAlerts = [];
-
-function getToken() {
-    return localStorage.getItem(tokenKey);
-}
-
-function authHeaders() {
-    const token = getToken();
-    return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : {};
-}
 
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -600,8 +593,7 @@ async function markAllTriggeredSeen() {
 
 // Initialize
 (function init() {
-    const token = getToken();
-    if (!token) {
+    if (!hasValidSession()) {
         window.location.href = 'index.html';
         return;
     }

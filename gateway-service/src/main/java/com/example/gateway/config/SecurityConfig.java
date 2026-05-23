@@ -27,7 +27,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // allow static SPA files
-                        .pathMatchers("/", "/index.html", "/marketbreadth.html", "/dashboard.html", "/portfolio.html", "/portfolio-analytics.html", "/pnl-report.html", "/announcements.html", "/alerts.html", "/52w-breakouts.html", "/results-analysis.html", "/good-results.html", "/pead-scanner.html", "/health.html", "/style.css", "/styles.css", "/assets/images/logo-icon.png", "/assets/images/google-logo.svg", "/app.js", "/portfolio.js", "/marketbreadth.js", "/token-utils.js", "/js/**", "/images/**").permitAll()
+                        .pathMatchers("/", "/index.html", "/marketbreadth.html", "/dashboard.html", "/portfolio.html", "/portfolio-analytics.html", "/pnl-report.html", "/announcements.html", "/alerts.html", "/52w-breakouts.html", "/results-analysis.html", "/good-results.html", "/pead-scanner.html", "/health.html", "/admin.html", "/style.css", "/styles.css", "/assets/images/logo-icon.png", "/assets/images/google-logo.svg", "/app.js", "/portfolio.js", "/marketbreadth.js", "/token-utils.js", "/js/**", "/images/**").permitAll()
 
                         // allow system health API (server-side health checks)
                         .pathMatchers("/api/system/**").permitAll()
@@ -52,9 +52,10 @@ public class SecurityConfig {
                         .pathMatchers("/oauth-service/login/oauth2/**").permitAll() // Google callback
                         .pathMatchers("/oauth-service/user-token").permitAll()
                         .pathMatchers("/oauth-service/.well-known/**").permitAll()
-                        // Token refresh/revoke must be public (called when JWT expired)
+                        // Token refresh/revoke/info must be public (called when JWT expired or for session check)
                         .pathMatchers("/oauth-service/token/refresh").permitAll()
                         .pathMatchers("/oauth-service/token/revoke").permitAll()
+                        .pathMatchers("/oauth-service/token/info").permitAll()
 
                         // allow actuator endpoints for Prometheus scraping
                         .pathMatchers("/actuator/**").permitAll()

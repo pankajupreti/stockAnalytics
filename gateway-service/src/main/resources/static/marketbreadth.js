@@ -1,31 +1,13 @@
 (function () {
-  const tokenKey = "access_token";
   const apiUrl = "/reporting-service/api/market-breadth";
-
-  // Check auth on load - wait for token-utils.js to potentially refresh token
-  function getToken() {
-    return localStorage.getItem(tokenKey);
-  }
 
   // Don't check token immediately - let token-utils.js handle initialization
   // The fetchWithAuth will handle 401 and refresh
 
-  // logout aligns with dashboard behavior - also remove refresh_token
+  // logout aligns with dashboard behavior
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-      const refreshToken = localStorage.getItem("refresh_token");
-      if (refreshToken) {
-        try {
-          await fetch("/oauth-service/token/revoke", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refreshToken: refreshToken })
-          });
-        } catch (e) { console.log("Token revoke failed:", e); }
-      }
-      localStorage.removeItem(tokenKey);
-      localStorage.removeItem("refresh_token");
+    logoutBtn.addEventListener("click", () => {
       window.location.href = "index.html";
     });
   }

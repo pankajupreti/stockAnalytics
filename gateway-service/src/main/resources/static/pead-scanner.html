@@ -323,6 +323,7 @@
         <a href="good-results.html">Good Results</a>
         <a href="pead-scanner.html" class="active">PEAD Scanner</a>
         <a href="health.html" class="admin-only">Health</a>
+        <a href="admin.html" class="admin-only">Admin</a>
     </div>
 </div>
 
@@ -466,6 +467,8 @@
 </div>
 
 <script src="token-utils.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>checkProAccess();</script>
 <script>
     const PEAD_API_BASE = window.location.hostname === "localhost"
         ? "http://localhost:8082/announcement-service/api/pead"
@@ -909,18 +912,14 @@
 
     // Logout handler
     document.getElementById("logout-btn").addEventListener("click", async () => {
-        const refreshToken = localStorage.getItem("refresh_token");
-        if (refreshToken) {
-            try {
-                await fetch("/oauth-service/token/revoke", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ refreshToken: refreshToken })
-                });
-            } catch (e) { console.log("Token revoke failed:", e); }
-        }
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("refresh_token");
+        try {
+            await fetch("/oauth-service/token/revoke", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({})
+            });
+        } catch (e) { console.log("Token revoke failed:", e); }
         window.location.href = "index.html";
     });
 </script>

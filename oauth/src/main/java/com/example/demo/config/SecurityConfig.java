@@ -3,6 +3,7 @@ package com.example.demo.config;
 import com.example.demo.service.UserTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
@@ -36,6 +38,8 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -78,9 +82,30 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 2️⃣ Application endpoints (stateless, only Google login)
+    // 2️⃣ API endpoints secured with Bearer JWT (for frontend API calls)
     @Bean
     @Order(2)
+    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/api/**")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/user/plan").authenticated()
+                        .requestMatchers("/api/admin/**").authenticated()
+                        .requestMatchers("/api/payment/**").authenticated()
+                        .anyRequest().authenticated()
+                )
+                .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()));
+
+        return http.build();
+    }
+
+    // 3️⃣ Application endpoints (Google OAuth login + legacy endpoints)
+    @Bean
+    @Order(3)
     public SecurityFilterChain appSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
@@ -97,6 +122,7 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/authorization/**").permitAll()
                         .requestMatchers("/token/refresh").permitAll()
                         .requestMatchers("/token/revoke").permitAll()
+                        .requestMatchers("/token/info").permitAll()
                         .anyRequest().authenticated()
                 )
                 .headers(headers -> headers.frameOptions().disable())
@@ -107,7 +133,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 3️⃣ Success Handler → save tokens + redirect back to SPA with JWT + refresh token
+    // 3️⃣ Success Handler → save tokens as HttpOnly cookies + redirect to dashboard
     @Bean
     public AuthenticationSuccessHandler successHandler() {
         return (request, response, authentication) -> {
@@ -132,41 +158,66 @@ public class SecurityConfig {
             String name  = user.getAttribute("name");
             String sub = user.getSubject();
 
-            System.out.println("📧 User: " + email + " (sub: " + sub + ")");
-            System.out.println("🔑 Google Access Token: " + (client.getAccessToken() != null ? "present" : "missing"));
-            System.out.println("🔄 Google Refresh Token from client: " + (client.getRefreshToken() != null ? "present (" + client.getRefreshToken().getTokenValue().substring(0, 20) + "...)" : "⚠️ MISSING!"));
+            System.out.println("User: " + email + " (sub: " + sub + ")");
+            System.out.println("Google Access Token: " + (client.getAccessToken() != null ? "present" : "missing"));
+            System.out.println("Google Refresh Token from client: " + (client.getRefreshToken() != null ? "present" : "MISSING!"));
+
+            long accessTokenMaxAge = 3600; // 1 hour
+            Instant expiresAt = now.plus(accessTokenMaxAge, ChronoUnit.SECONDS);
 
             JwtClaimsSet claims = JwtClaimsSet.builder()
                     .issuer(issuer)
                     .issuedAt(now)
-                    .expiresAt(now.plus(1, ChronoUnit.HOURS))  // 1 hour access token
+                    .expiresAt(expiresAt)
                     .subject(sub)
                     .claim("scope", scope)
                     .claim("email", email)
                     .claim("name", name)
                     .build();
 
-            // ⭐️ Persist / update user + tokens
+            // Persist / update user + tokens
             userTokenService.saveOrUpdateToken(user, client);
 
             String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
 
             // Get the stored refresh token (Google's refresh token)
             String refreshToken = userTokenService.getRefreshTokenBySub(sub);
-            System.out.println("💾 Stored Refresh Token: " + (refreshToken != null ? "present (" + refreshToken.substring(0, 20) + "...)" : "⚠️ NOT FOUND IN DB!"));
+            System.out.println("Stored Refresh Token: " + (refreshToken != null ? "present" : "NOT FOUND IN DB!"));
 
-            // Redirect to SPA with both tokens
-            StringBuilder redirectUrl = new StringBuilder(frontendBaseUrl)
-                    .append("/index.html#access_token=").append(accessToken);
+            boolean isSecure = frontendBaseUrl.startsWith("https");
 
+            // Set access_token as HttpOnly cookie (Path=/ so gateway sees it for all routes)
+            Cookie accessCookie = new Cookie("access_token", accessToken);
+            accessCookie.setHttpOnly(true);
+            accessCookie.setSecure(isSecure);
+            accessCookie.setPath("/");
+            accessCookie.setMaxAge((int) accessTokenMaxAge);
+            response.addCookie(accessCookie);
+
+            // Set refresh_token as HttpOnly cookie (narrow path: only sent to token endpoints)
             if (refreshToken != null) {
-                redirectUrl.append("&refresh_token=").append(refreshToken);
-                System.out.println("✅ Redirecting with refresh_token");
-            } else {
-                System.out.println("⚠️ Redirecting WITHOUT refresh_token - user will need to re-login!");
+                Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
+                refreshCookie.setHttpOnly(true);
+                refreshCookie.setSecure(isSecure);
+                refreshCookie.setPath("/oauth-service/token");
+                refreshCookie.setMaxAge(2592000); // 30 days
+                response.addCookie(refreshCookie);
+                System.out.println("Set refresh_token cookie (path=/oauth-service/token)");
             }
 
-            response.sendRedirect(redirectUrl.toString());
+            // Set token_meta as a readable (non-HttpOnly) cookie for JS to check expiry/email
+            String metaValue = "exp=" + expiresAt.getEpochSecond()
+                    + "&email=" + URLEncoder.encode(email != null ? email : "", StandardCharsets.UTF_8)
+                    + "&name=" + URLEncoder.encode(name != null ? name : "", StandardCharsets.UTF_8);
+            Cookie metaCookie = new Cookie("token_meta", metaValue);
+            metaCookie.setHttpOnly(false);
+            metaCookie.setSecure(isSecure);
+            metaCookie.setPath("/");
+            metaCookie.setMaxAge((int) accessTokenMaxAge);
+            response.addCookie(metaCookie);
+
+            System.out.println("Cookies set, redirecting to dashboard");
+            response.sendRedirect(frontendBaseUrl + "/dashboard.html");
         };
     }
 

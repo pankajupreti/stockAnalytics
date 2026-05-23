@@ -1,5 +1,4 @@
-// Reuse the same token handling you already have
-const tokenKey = "access_token";
+// Auth is handled by HttpOnly cookies + token-utils.js (fetchWithAuth, hasValidSession, etc.)
 const API_BASE =
   window.location.hostname === "localhost"
     ? "http://localhost:8082/portfolio-service/api/portfolio" // local gateway
@@ -118,11 +117,6 @@ async function loadCMPForTickers(tickers){
 
 
 
-function authHeader() {
-  const t = localStorage.getItem(tokenKey);
-  return { "Authorization": "Bearer " + t, "Content-Type": "application/json" };
-}
-
 function fmtINR(n) {
   if (n === null || n === undefined || isNaN(n)) return "–";
   try {
@@ -137,19 +131,6 @@ async function loadPositions() {
   const res = await fetchWithAuth(`${API_BASE}/positions`);
   if (!res.ok) throw new Error(`Load positions failed (${res.status})`);
   positions = await res.json();
-}
-
-function authHeaderGET() {
-  const t = localStorage.getItem(tokenKey);
-  return { "Authorization": "Bearer " + t, "Accept": "application/json" };
-}
-function authHeaderJSON() {
-  const t = localStorage.getItem(tokenKey);
-  return {
-    "Authorization": "Bearer " + t,
-    "Accept": "application/json",
-    "Content-Type": "application/json"
-  };
 }
 
 // NEW: load CMPs in batch
@@ -1146,16 +1127,6 @@ async function savePosition() {
 }
 
 
-function authHeader() {
-  const t = localStorage.getItem(tokenKey);
-  return {
-    "Authorization": "Bearer " + t,
-    "Content-Type": "application/json",
-    "Accept": "application/json"
-  };
-}
-
-
 async function removePos(id) {
   if (!confirm("Delete this position?")) return;
   const res = await fetchWithAuth(`${API_BASE}/positions/${id}`, { method: "DELETE" });
@@ -1246,18 +1217,14 @@ byId("m-cancel").addEventListener("click", closeModal);
 byId("m-save").addEventListener("click", () => savePosition().catch(err => showErr(err.message)));
 byId("apply-filter").addEventListener("click", () => renderTable(byId("filter").value));
 byId("logout-btn").addEventListener("click", async () => {
-  const refreshToken = localStorage.getItem("refresh_token");
-  if (refreshToken) {
-    try {
-      await fetch("/oauth-service/token/revoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: refreshToken })
-      });
-    } catch (e) { console.log("Token revoke failed:", e); }
-  }
-  localStorage.removeItem(tokenKey);
-  localStorage.removeItem("refresh_token");
+  try {
+    await fetch("/oauth-service/token/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({})
+    });
+  } catch (e) { console.log("Token revoke failed:", e); }
   location.href = "index.html";
 });
 
@@ -1787,9 +1754,8 @@ byId("concall-modal-backdrop").addEventListener("click", function(e) {
 document.addEventListener("DOMContentLoaded", function() {
   // Give token-utils.js a moment to initialize and potentially refresh token
   setTimeout(function() {
-    const token = localStorage.getItem(tokenKey);
-    if (!token) {
-      console.log("Portfolio: No token after init, redirecting to login");
+    if (!hasValidSession()) {
+      console.log("Portfolio: No valid session after init, redirecting to login");
       location.href = "index.html";
       return;
     }
