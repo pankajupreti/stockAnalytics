@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - User Management</title>
+    <link rel="icon" type="image/png" href="./assets/images/logo-icon.png" />
+    <style>
+        :root { --bg:#0f172a; --card:#ffffff; --muted:#6b7280; --border:#e5e7eb; --primary:#2563eb; }
+        body{ margin:0; font-family:Segoe UI, Arial, sans-serif; background:#f9fafb; color:#111827; }
+        .navbar{ background:var(--bg); color:#fff; display:flex; align-items:center; justify-content:space-between; padding:12px 18px; position:sticky; top:0; z-index:100; }
+        .brand{ font-weight:700; letter-spacing:.3px; }
+        .links a{ color:#cbd5e1; text-decoration:none; padding:8px 10px; border-radius:8px; margin-left:8px; font-size:13px; }
+        .links a.active, .links a:hover{ color:#fff; background:rgba(255,255,255,.1); }
+        .wrap{ padding:20px; max-width:1200px; margin:0 auto; }
+
+        .panel{ background:var(--card); border-radius:12px; padding:24px; margin-bottom:20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+
+        table{ width:100%; border-collapse:collapse; font-size:14px; }
+        th{ text-align:left; padding:10px 12px; border-bottom:2px solid var(--border); color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
+        td{ padding:10px 12px; border-bottom:1px solid #f1f5f9; }
+        tr:hover td{ background:#f8fafc; }
+
+        .badge{ display:inline-block; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+        .badge-pro{ background:#dcfce7; color:#166534; }
+        .badge-free{ background:#f3f4f6; color:#6b7280; }
+        .badge-admin{ background:#dbeafe; color:#1d4ed8; }
+
+        .btn{ padding:6px 14px; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600; }
+        .btn-grant{ background:#2563eb; color:#fff; }
+        .btn-grant:hover{ background:#1d4ed8; }
+        .btn-revoke{ background:#ef4444; color:#fff; }
+        .btn-revoke:hover{ background:#dc2626; }
+        .btn-disabled{ background:#e5e7eb; color:#9ca3af; cursor:not-allowed; }
+
+        .stats-row{ display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+        .stat-card{ background:var(--card); border-radius:12px; padding:20px 24px; flex:1; min-width:160px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+        .stat-label{ font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+        .stat-value{ font-size:28px; font-weight:700; }
+
+        .loading{ text-align:center; padding:40px; color:var(--muted); }
+        .denied{ text-align:center; padding:80px 20px; }
+        .denied h2{ color:#ef4444; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+    <div class="brand">Stock Analytics</div>
+    <div class="links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="52w-breakouts.html">52W Breakouts</a>
+        <a href="marketbreadth.html">Market Breadth</a>
+        <a href="portfolio.html">Portfolio</a>
+        <a href="portfolio-analytics.html">Analytics</a>
+        <a href="pnl-report.html">P&L Report</a>
+        <a href="alerts.html">Alerts</a>
+        <a href="announcements.html">Announcements</a>
+        <a href="results-analysis.html">Results</a>
+        <a href="good-results.html">Good Results</a>
+        <a href="pead-scanner.html">PEAD</a>
+        <a href="health.html" class="admin-only">Health</a>
+        <a href="admin.html" class="admin-only active">Admin</a>
+    </div>
+</div>
+
+<div class="wrap" id="main-content">
+    <div class="loading" id="loading">Loading...</div>
+
+    <div id="denied" class="denied" style="display:none;">
+        <h2>Access Denied</h2>
+        <p>This page is only accessible to administrators.</p>
+        <a href="dashboard.html">Back to Dashboard</a>
+    </div>
+
+    <div id="admin-content" style="display:none;">
+        <h1 style="margin:0 0 20px;font-size:24px;">User Management</h1>
+
+        <div class="panel" id="ffa-panel" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+            <div>
+                <div style="font-weight:700;font-size:16px;margin-bottom:4px;">Free For All Mode</div>
+                <div style="font-size:13px;color:var(--muted);">When ON, all users get PRO features without payment. Toggle OFF to enforce paywall.</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <span id="ffa-badge" class="badge badge-free">--</span>
+                <button id="ffa-toggle-btn" class="btn btn-grant" onclick="toggleFreeForAll()">Loading...</button>
+            </div>
+        </div>
+
+        <div class="stats-row" id="stats-row">
+            <div class="stat-card">
+                <div class="stat-label">Total Users</div>
+                <div class="stat-value" id="stat-total">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Pro Users</div>
+                <div class="stat-value" id="stat-pro" style="color:#166534;">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Free Users</div>
+                <div class="stat-value" id="stat-free" style="color:#6b7280;">-</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Plan</th>
+                        <th>Expires</th>
+                        <th>Granted By</th>
+                        <th>Last Active</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="users-table">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="token-utils.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        if (!isAdmin()) {
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("denied").style.display = "block";
+            return;
+        }
+
+        try {
+            const res = await fetchWithAuth("/oauth-service/api/admin/users");
+            if (!res.ok) throw new Error("Failed to load users");
+            const users = await res.json();
+
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("admin-content").style.display = "block";
+
+            // Load Free For All status
+            await loadFreeForAllStatus();
+
+            // Stats
+            const total = users.length;
+            const pro = users.filter(u => u.plan === "PRO" || u.isAdmin).length;
+            const free = total - pro;
+            document.getElementById("stat-total").textContent = total;
+            document.getElementById("stat-pro").textContent = pro;
+            document.getElementById("stat-free").textContent = free;
+
+            // Table
+            renderUsers(users);
+        } catch (e) {
+            document.getElementById("loading").textContent = "Error loading users: " + e.message;
+        }
+    });
+
+    function renderUsers(users) {
+        const tbody = document.getElementById("users-table");
+        tbody.innerHTML = "";
+
+        users.forEach(u => {
+            const tr = document.createElement("tr");
+
+            const planBadge = u.isAdmin
+                ? '<span class="badge badge-admin">ADMIN</span>'
+                : u.plan === "PRO"
+                    ? '<span class="badge badge-pro">PRO</span>'
+                    : '<span class="badge badge-free">FREE</span>';
+
+            const lastActive = u.lastActivity
+                ? new Date(u.lastActivity).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })
+                : "-";
+
+            let actionBtn = "";
+            if (u.isAdmin) {
+                actionBtn = '<button class="btn btn-disabled" disabled>Admin</button>';
+            } else if (u.plan === "PRO") {
+                actionBtn = `<button class="btn btn-revoke" onclick="revokePro('${u.userSub}', '${u.email}')">Revoke</button>`;
+            } else {
+                actionBtn = `<button class="btn btn-grant" onclick="grantPro('${u.userSub}', '${u.email}')">Grant Pro</button>`;
+            }
+
+            tr.innerHTML = `
+                <td><strong>${u.name || "-"}</strong></td>
+                <td>${u.email || "-"}</td>
+                <td>${planBadge}</td>
+                <td>${u.expiresAt || "Never"}</td>
+                <td>${u.grantedBy || "-"}</td>
+                <td>${lastActive}</td>
+                <td>${actionBtn}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async function grantPro(userSub, email) {
+        if (!confirm(`Grant PRO access to ${email}?`)) return;
+
+        try {
+            const res = await fetchWithAuth("/oauth-service/api/admin/grant-pro", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userSub, email })
+            });
+
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert("Failed: " + (err.error || "Unknown error"));
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    let ffaEnabled = false;
+
+    async function loadFreeForAllStatus() {
+        try {
+            const res = await fetchWithAuth("/oauth-service/api/admin/free-for-all-status");
+            if (!res.ok) return;
+            const data = await res.json();
+            ffaEnabled = data.freeForAll;
+            updateFfaUI();
+        } catch (e) {
+            console.error("Failed to load FFA status:", e);
+        }
+    }
+
+    function updateFfaUI() {
+        const badge = document.getElementById("ffa-badge");
+        const btn = document.getElementById("ffa-toggle-btn");
+        if (ffaEnabled) {
+            badge.textContent = "ON";
+            badge.className = "badge badge-pro";
+            btn.textContent = "Turn OFF";
+            btn.className = "btn btn-revoke";
+        } else {
+            badge.textContent = "OFF";
+            badge.className = "badge badge-free";
+            btn.textContent = "Turn ON";
+            btn.className = "btn btn-grant";
+        }
+    }
+
+    async function toggleFreeForAll() {
+        const newState = !ffaEnabled;
+        const action = newState ? "enable Free For All (all users get PRO)" : "disable Free For All (enforce paywall)";
+        if (!confirm(`Are you sure you want to ${action}?`)) return;
+
+        try {
+            const res = await fetchWithAuth("/oauth-service/api/admin/free-for-all", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled: newState })
+            });
+
+            if (res.ok) {
+                ffaEnabled = newState;
+                updateFfaUI();
+            } else {
+                const err = await res.json();
+                alert("Failed: " + (err.error || "Unknown error"));
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    async function revokePro(userSub, email) {
+        if (!confirm(`Revoke PRO access from ${email}?`)) return;
+
+        try {
+            const res = await fetchWithAuth("/oauth-service/api/admin/revoke-pro", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userSub })
+            });
+
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert("Failed: " + (err.error || "Unknown error"));
+            }
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>
