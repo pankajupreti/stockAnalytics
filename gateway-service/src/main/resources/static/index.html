@@ -59,6 +59,42 @@
                             <input type="checkbox" id="stay-logged-in" />
                             <span>Stay logged in for 30 days</span>
                         </label>
+
+                        <!-- Email/Password Auth -->
+                        <div style="margin-top:18px; width:100%; max-width:370px;">
+                            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+                                <hr style="flex:1; border:none; border-top:1px solid #334155;" />
+                                <span style="color:#94a3b8; font-size:13px; white-space:nowrap;">or use email</span>
+                                <hr style="flex:1; border:none; border-top:1px solid #334155;" />
+                            </div>
+
+                            <!-- Tab toggle -->
+                            <div id="auth-tabs" style="display:flex; gap:0; margin-bottom:12px; border-radius:8px; overflow:hidden; border:1px solid #334155;">
+                                <button type="button" id="tab-login" onclick="switchAuthTab('login')"
+                                        style="flex:1; padding:8px 0; font-size:13px; font-weight:600; cursor:pointer; border:none; background:#1e293b; color:#e2e8f0; transition:background .15s;">
+                                    Login
+                                </button>
+                                <button type="button" id="tab-signup" onclick="switchAuthTab('signup')"
+                                        style="flex:1; padding:8px 0; font-size:13px; font-weight:600; cursor:pointer; border:none; background:transparent; color:#64748b; transition:background .15s;">
+                                    Sign Up
+                                </button>
+                            </div>
+
+                            <form id="email-auth-form" onsubmit="handleEmailAuth(event)" autocomplete="off">
+                                <input id="auth-name" type="text" placeholder="Full name"
+                                       style="display:none; width:100%; padding:10px 12px; margin-bottom:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:14px; box-sizing:border-box;" />
+                                <input id="auth-email" type="email" placeholder="Email address" required
+                                       style="width:100%; padding:10px 12px; margin-bottom:8px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:14px; box-sizing:border-box;" />
+                                <input id="auth-password" type="password" placeholder="Password" required minlength="6"
+                                       style="width:100%; padding:10px 12px; margin-bottom:10px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; font-size:14px; box-sizing:border-box;" />
+                                <button type="submit" id="auth-submit-btn" class="sa-btn sa-btn-primary"
+                                        style="width:100%; justify-content:center;">
+                                    Login
+                                </button>
+                            </form>
+                            <p id="auth-error" style="color:#f87171; font-size:13px; margin-top:8px; display:none;"></p>
+                            <p id="auth-success" style="color:#4ade80; font-size:13px; margin-top:8px; display:none;"></p>
+                        </div>
                     </div>
                 </div>
 
@@ -318,6 +354,87 @@
         const el = document.getElementById("login");
         if (el) {
             el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+    }
+
+    // Email/password auth
+    let authMode = "login"; // "login" or "signup"
+
+    function switchAuthTab(mode) {
+        authMode = mode;
+        const tabLogin = document.getElementById("tab-login");
+        const tabSignup = document.getElementById("tab-signup");
+        const nameField = document.getElementById("auth-name");
+        const submitBtn = document.getElementById("auth-submit-btn");
+        const errEl = document.getElementById("auth-error");
+        const successEl = document.getElementById("auth-success");
+
+        errEl.style.display = "none";
+        successEl.style.display = "none";
+
+        if (mode === "signup") {
+            tabSignup.style.background = "#1e293b";
+            tabSignup.style.color = "#e2e8f0";
+            tabLogin.style.background = "transparent";
+            tabLogin.style.color = "#64748b";
+            nameField.style.display = "block";
+            submitBtn.textContent = "Sign Up";
+        } else {
+            tabLogin.style.background = "#1e293b";
+            tabLogin.style.color = "#e2e8f0";
+            tabSignup.style.background = "transparent";
+            tabSignup.style.color = "#64748b";
+            nameField.style.display = "none";
+            submitBtn.textContent = "Login";
+        }
+    }
+
+    async function handleEmailAuth(e) {
+        e.preventDefault();
+        const errEl = document.getElementById("auth-error");
+        const successEl = document.getElementById("auth-success");
+        const submitBtn = document.getElementById("auth-submit-btn");
+        errEl.style.display = "none";
+        successEl.style.display = "none";
+
+        const email = document.getElementById("auth-email").value.trim();
+        const password = document.getElementById("auth-password").value;
+        const name = document.getElementById("auth-name").value.trim();
+
+        const endpoint = authMode === "signup"
+            ? "/oauth-service/api/auth/register"
+            : "/oauth-service/api/auth/login";
+
+        const payload = authMode === "signup"
+            ? { email, password, name }
+            : { email, password };
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = authMode === "signup" ? "Signing up..." : "Logging in...";
+
+        try {
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                errEl.textContent = data.error || "Something went wrong";
+                errEl.style.display = "block";
+                return;
+            }
+
+            successEl.textContent = "Success! Redirecting...";
+            successEl.style.display = "block";
+            window.location.href = "/dashboard.html";
+        } catch (err) {
+            errEl.textContent = "Network error. Please try again.";
+            errEl.style.display = "block";
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = authMode === "signup" ? "Sign Up" : "Login";
         }
     }
 </script>

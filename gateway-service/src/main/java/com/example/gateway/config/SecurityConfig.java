@@ -52,6 +52,8 @@ public class SecurityConfig {
                         .pathMatchers("/oauth-service/login/oauth2/**").permitAll() // Google callback
                         .pathMatchers("/oauth-service/user-token").permitAll()
                         .pathMatchers("/oauth-service/.well-known/**").permitAll()
+                        // Email/password auth endpoints (public, no JWT)
+                        .pathMatchers("/oauth-service/api/auth/**").permitAll()
                         // Token refresh/revoke/info must be public (called when JWT expired or for session check)
                         .pathMatchers("/oauth-service/token/refresh").permitAll()
                         .pathMatchers("/oauth-service/token/revoke").permitAll()
