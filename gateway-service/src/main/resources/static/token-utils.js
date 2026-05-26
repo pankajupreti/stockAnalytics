@@ -366,7 +366,7 @@ async function checkProAccess() {
     if (isAdmin()) return true;
 
     const plan = await getUserPlan();
-    if (plan.plan === "PRO" || plan.plan === "ADMIN" || plan.isAdmin) return true;
+    if (plan.freeForAll || plan.plan === "PRO" || plan.plan === "ADMIN" || plan.isAdmin) return true;
 
     // Show paywall
     showPaywall();
